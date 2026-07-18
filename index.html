@@ -342,7 +342,8 @@
   <div class="sekmeler">
     <div class="sekme aktif" id="skGaraj" onclick="sekmeAc('garaj')">Garaj</div>
     <div class="sekme" id="skModifiye" onclick="sekmeAc('modifiye')">Modifiye</div>
-    <div class="sekme" id="skLider" onclick="sekmeAc('lider')">Online sıralama</div>
+    <div class="sekme" id="skLider" onclick="sekmeAc('lider')">Lig</div>
+    <div class="sekme" id="skProfil" onclick="sekmeAc('profil')">Profil</div>
   </div>
   <div class="icerik" id="garajIcerik"></div>
   <div style="padding:12px 14px;background:var(--panel);border-top:2px solid var(--line);flex-shrink:0;">
@@ -556,8 +557,36 @@ let hafizaModu = false;
 const varsayilanProfil = () => ({
   isim:'', para:2000,
   arabalar:{ sahin:{ mod:{motor:0,turbo:0,lastik:0,nitro:0,agirlik:0}, renk:'#e63946' } },
-  secili:'sahin', enIyi:null
+  secili:'sahin', enIyi:null,
+  stat:{ yaris:0, birinci:0, sampiyon:0, mesafe:0, enKombo:0, kilPayi:0, hasarsiz:0, enHiz:0, kazanc:0 },
+  basarimlar:{}
 });
+
+// ============ BAŞARIMLAR ============
+const BASARIMLAR = [
+  { id:'ilkYaris',  ikon:'🏁', ad:'İlk Adım',        not:'İlk yarışını tamamla',            odul:500,  k:st=>st.yaris>=1 },
+  { id:'ilkZafer',  ikon:'🥇', ad:'İlk Zafer',       not:'Bir yarışta 1. ol',               odul:1000, k:st=>st.birinci>=1 },
+  { id:'kombo5',    ikon:'🔥', ad:'Sollama Ustası',  not:'Tek yarışta 5 kombo yap',         odul:800,  k:st=>st.enKombo>=5 },
+  { id:'kombo10',   ikon:'⚡', ad:'Durdurulamaz',    not:'Tek yarışta 10 kombo yap',        odul:2000, k:st=>st.enKombo>=10 },
+  { id:'hasarsiz',  ikon:'✨', ad:'Tertemiz',        not:'Hasarsız yarış bitir',            odul:1000, k:st=>st.hasarsiz>=1 },
+  { id:'hizli',     ikon:'💨', ad:'Hız Tutkunu',     not:'200 km/s hıza ulaş',              odul:600,  k:st=>st.enHiz>=200 },
+  { id:'sampiyon',  ikon:'🏆', ad:'Şampiyon',        not:'Turnuva şampiyonu ol',            odul:3000, k:st=>st.sampiyon>=1 },
+  { id:'veteran',   ikon:'🎖️', ad:'Veteran',         not:'20 yarış tamamla',                odul:2500, k:st=>st.yaris>=20 },
+  { id:'mesafe25',  ikon:'🛣️', ad:'Yol Kurdu',       not:'Toplam 25 km yol yap',            odul:1200, k:st=>st.mesafe>=25000 },
+  { id:'kilPayi15', ikon:'😱', ad:'Buz Gibi Sinir',  not:'Toplam 15 kıl payı geçiş',        odul:1500, k:st=>st.kilPayi>=15 }
+];
+function basarimKontrol(){
+  // stat'a göre yeni kazanılan başarımları bul, ödülü ver, listeyi döndür
+  const yeni = [];
+  for(const b of BASARIMLAR){
+    if(!profil.basarimlar[b.id] && b.k(profil.stat)){
+      profil.basarimlar[b.id] = true;
+      profil.para += b.odul;
+      yeni.push(b);
+    }
+  }
+  return yeni;
+}
 
 async function profilYukle(){
   try{
@@ -565,6 +594,8 @@ async function profilYukle(){
     profil = JSON.parse(s.value);
   }catch(e){ profil = varsayilanProfil(); }
   if(!profil || !profil.arabalar) profil = varsayilanProfil();
+  if(!profil.stat) profil.stat = varsayilanProfil().stat;
+  if(!profil.basarimlar) profil.basarimlar = {};
 }
 async function profilKaydet(){
   try{ await window.storage.set('profil', JSON.stringify(profil)); }
@@ -867,12 +898,56 @@ function arabaSVG(id, renk, genislik=190, modSv=0){
 let aktifSekme = 'garaj';
 function sekmeAc(s){
   aktifSekme = s;
-  ['garaj','modifiye','lider'].forEach(x=>{
+  ['garaj','modifiye','lider','profil'].forEach(x=>{
     $('sk'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('aktif', x===s);
   });
   if(s==='garaj') garajCiz();
   if(s==='modifiye') modifiyeCiz();
   if(s==='lider') liderCiz();
+  if(s==='profil') profilCiz();
+}
+
+// ============ PROFİL SEKMESİ: istatistik + başarımlar ============
+function profilCiz(){
+  const st = profil.stat;
+  const kazanilan = Object.keys(profil.basarimlar).length;
+  const kart = (ikon, deger, ad) => `<div style="background:#0e131d;border:1px solid #232b3a;border-radius:12px;padding:10px 6px;text-align:center;">
+    <div style="font-size:18px;">${ikon}</div>
+    <div style="font-size:17px;font-weight:900;color:var(--amber);margin:2px 0;">${deger}</div>
+    <div style="font-size:10px;color:var(--muted);">${ad}</div></div>`;
+  let h = `<div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:22px;font-weight:900;">${profil.isim||'Pilot'}</div>
+      <div style="font-size:12px;color:var(--muted);">Toplam kazanç: <b style="color:var(--amber)">₺${st.kazanc.toLocaleString('tr-TR')}</b></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px;">
+      ${kart('🏁', st.yaris, 'Yarış')}
+      ${kart('🥇', st.birinci, 'Birincilik')}
+      ${kart('🏆', st.sampiyon, 'Şampiyonluk')}
+      ${kart('🔥', st.enKombo, 'En kombo')}
+      ${kart('💨', st.enHiz, 'En hız km/s')}
+      ${kart('😱', st.kilPayi, 'Kıl payı')}
+      ${kart('✨', st.hasarsiz, 'Hasarsız')}
+      ${kart('🛣️', (st.mesafe/1000).toFixed(1), 'Toplam km')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-weight:800;font-size:14px;color:var(--muted);">BAŞARIMLAR</div>
+      <div style="font-size:12px;color:var(--teal);font-weight:700;">${kazanilan}/${BASARIMLAR.length}</div>
+    </div>`;
+  for(const b of BASARIMLAR){
+    const var_ = !!profil.basarimlar[b.id];
+    h += `<div style="display:flex;align-items:center;gap:11px;padding:9px 12px;margin-bottom:7px;border-radius:12px;
+        background:${var_?'linear-gradient(135deg,#2a1f3d55,#1a274055)':'#0e131d'};
+        border:1px solid ${var_?'#6b4fd8':'#232b3a'};${var_?'':'opacity:.55;'}">
+      <div style="font-size:22px;${var_?'':'filter:grayscale(1);'}">${b.ikon}</div>
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:13.5px;${var_?'color:#c9b6ff;':''}">${b.ad}</div>
+        <div style="font-size:11px;color:var(--muted);">${b.not}</div>
+      </div>
+      <div style="font-size:11.5px;font-weight:800;color:${var_?'var(--teal)':'var(--muted)'};">
+        ${var_?'✓':'₺'+b.odul.toLocaleString('tr-TR')}</div>
+    </div>`;
+  }
+  $('garajIcerik').innerHTML = h;
 }
 function statCubuk(ad, deger, temel, maks=300){
   const modlu = deger > temel;
@@ -1490,6 +1565,11 @@ async function yarisBaslat(haritaId){
   ekranAc('yarisEkrani');
   Muzik.dur();
   if(ayarlar.egim) egimBaslat();
+  // eğim kontrolü aktifken yön tuşlarına gerek yok — gizle, nitro genişlesin
+  const egimliMod = ayarlar.egim;
+  $('btnSol').style.display = egimliMod ? 'none' : '';
+  $('btnSag').style.display = egimliMod ? 'none' : '';
+  $('btnNitro').style.flex = egimliMod ? '1' : '';
   $('bitisKaplama').classList.remove('goster');
   // bitiş ekranı butonlarını varsayılana döndür (turnuva bunları değiştiriyor)
   if(!turnuva || !turnuva.aktif){
@@ -1538,6 +1618,7 @@ async function yarisBaslat(haritaId){
     sira:1, sonSira:1, siraToastYazi:'', siraToastRenk:'', siraToastSure:0,
     sollamaTurbo:0, turboToast:0,
     kombo:0, komboSure:0, enYuksekKombo:0, komboFlash:0,
+    mukStart:false, mukToast:0, son500:false, son500Toast:0, enHiz:0,
     yakinGecis:0, yakinToast:0, temizSure:0, temizToast:0,
     hasar:0, simsekSure:0, sonSimsek:4+Math.random()*5, yagmur:[]
   };
@@ -1690,6 +1771,20 @@ function guncelle(dt){
     o.carpTitre = Math.max(0, o.carpTitre - dt);
     o.sonGeecti = Math.max(0, o.sonGeecti - dt);
     o.turboToast = Math.max(0, (o.turboToast||0) - dt);
+    o.mukToast = Math.max(0, (o.mukToast||0) - dt);
+    o.son500Toast = Math.max(0, (o.son500Toast||0) - dt);
+    o.enHiz = Math.max(o.enHiz||0, o.hiz*3.6);
+    // MÜKEMMEL ÇIKIŞ: start sonrası ilk 0.45sn içinde nitroya bas → bonus turbo
+    if(!o.mukStart && o.sure < 0.45 && girdi.nitro){
+      o.mukStart = true;
+      o.sollamaTurbo = Math.min(2.6, (o.sollamaTurbo||0) + 1.3);
+      o.mukToast = 1.0;
+      Ses.temiz();
+    } else if(!o.mukStart && o.sure >= 0.45){ o.mukStart = true; }
+    // SON 500 METRE uyarısı
+    if(!o.son500 && H.MESAFE - o.mesafe <= 500){
+      o.son500 = true; o.son500Toast = 1.2; Ses.bip(true);
+    }
     o.komboFlash = Math.max(0, (o.komboFlash||0) - dt*2);
     o.yakinToast = Math.max(0, (o.yakinToast||0) - dt);
     o.temizToast = Math.max(0, (o.temizToast||0) - dt);
@@ -1849,6 +1944,16 @@ async function yarisBitti(){
   const hasarCeza = Math.round(temelOdul * (o.hasar||0) * 0.35);   // hasarlı bitirme cezası
   const odul = Math.round(Math.max(100, (temelOdul + komboBonus + yakinBonus - hasarCeza)) * H.odulCarp);
   profil.para += odul;
+  // ---- İSTATİSTİKLER + BAŞARIMLAR ----
+  profil.stat.yaris++;
+  if(siralama===1) profil.stat.birinci++;
+  profil.stat.mesafe += H.MESAFE;
+  profil.stat.enKombo = Math.max(profil.stat.enKombo, o.enYuksekKombo||0);
+  profil.stat.kilPayi += o.yakinGecis||0;
+  if((o.hasar||0) < 0.02) profil.stat.hasarsiz++;
+  profil.stat.enHiz = Math.max(profil.stat.enHiz, Math.round(o.enHiz||0));
+  profil.stat.kazanc += odul;
+  const yeniBasarim = basarimKontrol();
   const rekor = await skorGonder(sure);
   await profilKaydet();
   const Z = ZORLUKLAR[H.zorluk] || ZORLUKLAR.orta;
@@ -1860,6 +1965,7 @@ async function yarisBitti(){
   if(komboBonus>0) dokum += `<div style="display:flex;justify-content:space-between;color:#ffb02e;"><span>🔥 Kombo x${o.enYuksekKombo}</span><span>+₺${Math.round(komboBonus*H.odulCarp).toLocaleString('tr-TR')}</span></div>`;
   if(yakinBonus>0) dokum += `<div style="display:flex;justify-content:space-between;color:#2ee6c8;"><span>😱 Kıl payı ×${o.yakinGecis}</span><span>+₺${Math.round(yakinBonus*H.odulCarp).toLocaleString('tr-TR')}</span></div>`;
   if(hasarCeza>0) dokum += `<div style="display:flex;justify-content:space-between;color:#ff4d5e;"><span>🔧 Hasar %${Math.round(o.hasar*100)}</span><span>−₺${Math.round(hasarCeza*H.odulCarp).toLocaleString('tr-TR')}</span></div>`;
+  for(const b of yeniBasarim) dokum += `<div style="display:flex;justify-content:space-between;color:#c9b6ff;font-weight:800;"><span>🏅 ${b.ikon} ${b.ad}</span><span>+₺${b.odul.toLocaleString('tr-TR')}</span></div>`;
   $('bitisDetay').innerHTML =
     `<span style="color:${Z.renk};font-size:13px;font-weight:800;">${Z.ad} · ${siralama}/${toplam}</span><br>` +
     `Süre: <b style="color:var(--teal)">${sureYaz(sure)}</b>` +
@@ -1932,6 +2038,8 @@ async function turnuvaFinalGoster(){
   const Z = ZORLUKLAR[turnuva.zorluk] || ZORLUKLAR.orta;
   const odul = Math.round((sampiyon ? 8000 : yer===2 ? 4000 : yer===3 ? 2000 : 800) * Z.odulCarp);
   profil.para += odul;
+  if(sampiyon) profil.stat.sampiyon++;
+  const finalBasarim = basarimKontrol();
   await profilKaydet(); paraYaz();
 
   $('bitisBaslik').textContent = sampiyon ? '🏆 ŞAMPİYON!' : `${yer}. SIRA`;
@@ -1949,7 +2057,8 @@ async function turnuvaFinalGoster(){
     `<div style="color:var(--teal);font-weight:800;font-size:13px;">TURNUVA SONUCU · ${Z.ad}</div>
      <div style="margin:8px 0;font-size:14px;">${tablo}</div>
      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #2a3140;">${etaplar}</div>
-     <div style="margin-top:8px;">Ödül: <b style="color:var(--amber)">₺${odul.toLocaleString('tr-TR')}</b></div>`;
+     <div style="margin-top:8px;">Ödül: <b style="color:var(--amber)">₺${odul.toLocaleString('tr-TR')}</b></div>` +
+    finalBasarim.map(b=>`<div style="color:#c9b6ff;font-weight:800;margin-top:4px;">🏅 ${b.ikon} ${b.ad} +₺${b.odul.toLocaleString('tr-TR')}</div>`).join('');
   const btnKutu = $('bitisButonlar');
   if(btnKutu) btnKutu.innerHTML =
     `<button class="btn" onclick="turnuvaIptal()">Garaj</button>` +
@@ -2441,6 +2550,29 @@ function ciz(){
     ctx.shadowColor = '#ffb02e'; ctx.shadowBlur = 14;
     ctx.fillStyle = '#ffd47a';
     ctx.fillText('⚡ TURBO!', G/2, Y*0.36 - (0.7-o.turboToast)*22);
+    ctx.restore();
+  }
+
+  // ---- MÜKEMMEL ÇIKIŞ ----
+  if((o.mukToast||0) > 0){
+    const a = Math.min(1, o.mukToast/0.4);
+    ctx.save(); ctx.globalAlpha = a; ctx.textAlign='center';
+    ctx.font = '900 19px sans-serif';
+    ctx.shadowColor = '#2ee6c8'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#8affe0';
+    ctx.fillText('🚀 MÜKEMMEL ÇIKIŞ!', G/2, Y*0.30 - (1.0-o.mukToast)*14);
+    ctx.restore();
+  }
+  // ---- SON 500m ----
+  if((o.son500Toast||0) > 0){
+    const a = Math.min(1, o.son500Toast/0.4);
+    const pulse = 1 + Math.sin(performance.now()/90)*0.06;
+    ctx.save(); ctx.globalAlpha = a; ctx.textAlign='center';
+    ctx.translate(G/2, Y*0.26); ctx.scale(pulse, pulse);
+    ctx.font = '900 21px sans-serif';
+    ctx.shadowColor = '#ff4d5e'; ctx.shadowBlur = 16;
+    ctx.fillStyle = '#ff8a94';
+    ctx.fillText('🏁 SON 500 METRE!', 0, 0);
     ctx.restore();
   }
 
@@ -3192,7 +3324,11 @@ function aracArka(cx, cyAlt, w, cfg){
     ctx.fillRect(-w*0.09, -beltH*0.64, w*0.024, w*0.058);
     if(inceDetay){
       ctx.fillStyle = '#3a4152'; ctx.font = `700 ${Math.max(4,w*0.028)|0}px monospace`; ctx.textAlign='center';
-      ctx.fillText('34 TR', w*0.008, -beltH*0.64+w*0.042);
+      // oyuncunun arabasında kendi adı yazsın (kişisel plaka)
+      const plakaYazi = (cfg.oyuncu && profil && profil.isim)
+        ? ('34 ' + profil.isim.replace(/[^a-zA-ZğüşıöçĞÜŞİÖÇ0-9]/g,'').slice(0,5).toUpperCase())
+        : '34 TR';
+      ctx.fillText(plakaYazi, w*0.008, -beltH*0.64+w*0.042);
     }
   }
 
