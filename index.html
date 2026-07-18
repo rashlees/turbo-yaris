@@ -184,6 +184,40 @@
     0%   { top:-4%; transform:scaleX(.32) scaleY(.4); opacity:0; }
     12%  { opacity:.9; }
     100% { top:102%; transform:scaleX(1.25) scaleY(1.6); opacity:.95; } }
+  /* hilal ay */
+  .giris-sehir::before { content:''; position:absolute; top:11%; right:13%;
+    width:34px; height:34px; border-radius:50%;
+    background:radial-gradient(circle at 62% 40%, #fdf6dd 0%, #f2e2ac 55%, #d8c384 100%);
+    box-shadow:0 0 26px #f2e2ac55, inset -7px -4px 0 #0b0e17;
+    animation: yildizPar 5s ease-in-out infinite alternate; }
+  /* bina pencereleri (yanıp sönen sarı ışıklar) */
+  .giris-pencereler { position:absolute; left:0; right:0; top:calc(52% - 88px); height:86px;
+    background-image:
+      radial-gradient(2px 3px at 8% 34%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 13% 58%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 22% 42%, #ffd98c, transparent),
+      radial-gradient(2px 3px at 30% 66%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 41% 30%, #ffd98c, transparent),
+      radial-gradient(2px 3px at 47% 55%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 58% 40%, #ffd98c, transparent),
+      radial-gradient(2px 3px at 67% 62%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 76% 36%, #ffd98c, transparent),
+      radial-gradient(2px 3px at 85% 52%, #ffce6e, transparent),
+      radial-gradient(2px 3px at 93% 44%, #ffd98c, transparent);
+    opacity:.8; animation: pencereKirp 3.4s steps(2) infinite; }
+  @keyframes pencereKirp { 0%,100%{opacity:.8} 50%{opacity:.55} }
+  /* arabanın far huzmesi (sağa doğru) */
+  .giris-araba { position:relative; }
+  .giris-araba::after { content:''; position:absolute; right:-34%; bottom:14%;
+    width:42%; height:34%;
+    background:linear-gradient(90deg, #fff3c455, #ffe9a01c 55%, transparent);
+    -webkit-clip-path:polygon(0 38%, 0 62%, 100% 100%, 100% 0);
+            clip-path:polygon(0 38%, 0 62%, 100% 100%, 100% 0);
+    filter:blur(1px); animation: yildizPar 2.6s ease-in-out infinite alternate; }
+  /* logo neon nabzı */
+  .giris-logo span { animation: logoNabiz 3.2s ease-in-out infinite alternate; }
+  @keyframes logoNabiz { from{ filter:drop-shadow(0 0 12px #ffb02e44); }
+                         to  { filter:drop-shadow(0 0 26px #ffb02e88); } }
   .giris-glow { position:absolute; left:50%; bottom:-16%; width:130%; height:44%;
     transform:translateX(-50%);
     background:radial-gradient(ellipse at 50% 100%, #ffb02e2e 0%, #ffb02e14 38%, transparent 68%); }
@@ -247,6 +281,14 @@
     background:linear-gradient(90deg,transparent,#ffffff55,transparent);
     animation: btnParla 2.6s ease-in-out infinite; }
   @keyframes btnParla { 0%,55%{ left:-60%; } 85%,100%{ left:130%; } }
+  /* ============ DURAKLAT ============ */
+  #btnDuraklat { position:absolute; top:calc(10px + env(safe-area-inset-top)); right:12px;
+    width:40px; height:40px; z-index:30; display:flex; align-items:center; justify-content:center;
+    font-size:16px; color:var(--text); background:#161c28cc; border:1px solid #ffffff22;
+    border-radius:12px; cursor:pointer; backdrop-filter:blur(6px); }
+  #btnDuraklat:active { transform:scale(.92); }
+  #duraklatKaplama { z-index:40; }
+
   /* ============ AYARLAR ============ */
   .ayar-btn { width:38px; height:34px; display:flex; align-items:center; justify-content:center;
     font-size:17px; background:var(--panel2); border:1px solid var(--line);
@@ -300,6 +342,7 @@
   <div class="giris-bg">
     <div class="giris-yildizlar"></div>
     <div class="giris-sehir"></div>
+    <div class="giris-pencereler"></div>
     <div class="giris-yol">
       <div class="yol-cizgi c1"></div>
       <div class="yol-cizgi c2"></div>
@@ -356,6 +399,7 @@
   <div class="baslik-bar">
     <button class="btn btn-kucuk" onclick="ekranAc('garajEkrani')">← Garaj</button>
     <div class="logo" style="font-size:16px;">PİST SEÇ</div>
+    <button class="ayar-btn" onclick="$('yardimKaplama').classList.add('goster')" aria-label="Nasıl oynanır">❓</button>
     <div style="width:52px;"></div>
   </div>
   <div class="icerik" id="haritaIcerik"></div>
@@ -365,6 +409,19 @@
 <div class="ekran" id="yarisEkrani">
   <div id="yarisSarici">
     <canvas id="pist"></canvas>
+    <button id="btnDuraklat" onclick="duraklat()" aria-label="Duraklat">⏸</button>
+    <div class="kaplama" id="duraklatKaplama">
+      <div class="ayar-kutu" style="text-align:center;">
+        <div style="font-size:22px;font-weight:900;letter-spacing:2px;margin-bottom:4px;">⏸ DURAKLATILDI</div>
+        <div id="duraklatBilgi" style="font-size:12px;color:var(--muted);margin-bottom:16px;"></div>
+        <button class="btn btn-ana" style="width:100%;margin-bottom:9px;font-size:16px;" onclick="devamEt()">▶ DEVAM ET</button>
+        <button class="btn" style="width:100%;margin-bottom:9px;" onclick="yenidenBaslat()">🔄 Yeniden başlat</button>
+        <div style="display:flex;gap:9px;">
+          <button class="btn" style="flex:1;" onclick="duraklatSes()" id="btnDurSes">🔊 Ses</button>
+          <button class="btn" style="flex:1;" onclick="yaristanCik()">🚪 Çık</button>
+        </div>
+      </div>
+    </div>
     <div class="hud">
       <div id="hudSol"></div>
       <div id="hudSag" style="text-align:right;"></div>
@@ -386,6 +443,36 @@
   </div>
 </div>
 
+
+<!-- GÜNLÜK ÖDÜL MODALI -->
+<div class="kaplama" id="gunlukKaplama">
+  <div class="ayar-kutu" style="text-align:center;">
+    <div style="font-size:38px;">🎁</div>
+    <div style="font-size:20px;font-weight:900;letter-spacing:1px;margin:6px 0 2px;">GÜNLÜK ÖDÜL</div>
+    <div id="gunlukSeri" style="font-size:13px;color:var(--teal);font-weight:800;margin-bottom:10px;"></div>
+    <div id="gunlukMiktar" style="font-size:30px;font-weight:900;color:var(--amber);margin-bottom:6px;"></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:14px;">Her gün gir, seri büyüsün — 7. günde ₺3.000!</div>
+    <div id="gunlukTakvim" style="display:flex;gap:5px;justify-content:center;margin-bottom:16px;"></div>
+    <button class="btn btn-ana" style="width:100%;" onclick="$('gunlukKaplama').classList.remove('goster')">Topla 🤑</button>
+  </div>
+</div>
+
+<!-- NASIL OYNANIR MODALI -->
+<div class="kaplama" id="yardimKaplama">
+  <div class="ayar-kutu">
+    <div class="ayar-baslik"><span>❓ NASIL OYNANIR</span>
+      <button class="ayar-kapat" onclick="$('yardimKaplama').classList.remove('goster')">✕</button></div>
+    <div style="font-size:13px;line-height:1.75;color:var(--text);">
+      <b>🕹️ Kontroller:</b> Ekrandaki ◀ ▶ tuşları ya da ayarlardan açarsan telefonu eğerek direksiyon. NİTRO basılı tut → hız patlaması.<br><br>
+      <b>🚀 Mükemmel çıkış:</b> "BAS GAZA!" der demez nitroya bas — bonus turbo!<br><br>
+      <b>🔥 Kombo:</b> Trafiği art arda solla, çarpan büyüsün. Çarparsan sıfırlanır.<br><br>
+      <b>😱 Kıl payı:</b> Araçlara yakın geç → ekstra nitro + para.<br><br>
+      <b>✨ Temiz sürüş:</b> 8 sn çarpmadan git → nitro dolumu.<br><br>
+      <b>🔧 Hasar:</b> Çarptıkça araba yavaşlar, ödülden kesilir.<br><br>
+      <b>🏆 Turnuva:</b> 3 pist, puan topla, şampiyon ol. Başarımları kazan, parayla yeni araba ve parça al!
+    </div>
+  </div>
+</div>
 
 <!-- AYARLAR MODALI -->
 <div class="kaplama" id="ayarKaplama">
@@ -453,10 +540,13 @@
 const ARABALAR = [
   { id:'sahin',  ad:'Şahin S',     sinif:'BAŞLANGIÇ', fiyat:0,     hiz:150, ivme:38, tutus:40, nitro:30 },
   { id:'dogan',  ad:'Doğan SLX',   sinif:'SOKAK',     fiyat:3500,  hiz:170, ivme:46, tutus:48, nitro:38 },
+  { id:'kartal', ad:'Kartal V6',   sinif:'TUNING',    fiyat:6000,  hiz:182, ivme:51, tutus:54, nitro:43 },
   { id:'tayfun', ad:'Tayfun R',    sinif:'SPOR',      fiyat:9000,  hiz:195, ivme:56, tutus:60, nitro:48 },
   { id:'bogaz',  ad:'Boğaz GT',    sinif:'SÜPER',     fiyat:18000, hiz:220, ivme:66, tutus:68, nitro:58 },
   { id:'poyraz', ad:'Poyraz RS',   sinif:'YARIŞ',     fiyat:32000, hiz:245, ivme:76, tutus:78, nitro:70 },
+  { id:'bora',   ad:'Bora GTX',    sinif:'ELİT',      fiyat:45000, hiz:262, ivme:83, tutus:83, nitro:78 },
   { id:'efsane', ad:'Efsane X',    sinif:'HİPER',     fiyat:60000, hiz:280, ivme:90, tutus:88, nitro:85 },
+  { id:'yildirim', ad:'Yıldırım Z', sinif:'EFSANEVİ', fiyat:90000, hiz:300, ivme:98, tutus:94, nitro:92 },
 ];
 const MODLAR = [
   { id:'motor',   ad:'Motor',            etki:'hiz',   aciklama:'Azami hız +8 km/s / seviye',  maliyet:800 },
@@ -596,6 +686,7 @@ async function profilYukle(){
   if(!profil || !profil.arabalar) profil = varsayilanProfil();
   if(!profil.stat) profil.stat = varsayilanProfil().stat;
   if(!profil.basarimlar) profil.basarimlar = {};
+  if(!profil.gunluk) profil.gunluk = { son:'', seri:0 };
 }
 async function profilKaydet(){
   try{ await window.storage.set('profil', JSON.stringify(profil)); }
@@ -705,6 +796,9 @@ function tekerSVG(cx, cy, r, jant, kaliper, klasik){
 }
 // Her model için özgün yandan çizim. modSv = toplam modifiye seviyesi (görsel yükseltmeler)
 function arabaSVG(id, renk, genislik=190, modSv=0){
+  // yeni modeller mevcut kasaları taban alır, sonda kendi süslemeleri eklenir
+  const susId = id;
+  id = ({kartal:'dogan', bora:'poyraz', yildirim:'efsane'})[id] || id;
   const koyu = ton(renk,-0.4), koyu2 = ton(renk,-0.6), acik = ton(renk,0.3), acikTop = ton(renk,0.5);
   const jant = modSv>=12 ? '#ffb02e' : '#9aa3b5';
   const cam = '#a9d7ff';
@@ -890,6 +984,26 @@ function arabaSVG(id, renk, genislik=190, modSv=0){
     ic += parlamaBandi;
     ic += tekerSVG(52,61,13.5,jant,'#2ee6c8') + tekerSVG(152,61,13.5,jant,'#2ee6c8');
   }
+  // ---- yeni modellerin ayırt edici süsleri ----
+  if(susId==='kartal'){
+    // çift yarış şeridi (kaput+gövde boyunca) + koyu tavan
+    ic += `<rect x="34" y="50.5" width="140" height="2.6" fill="#14171c" opacity=".85"/>
+    <rect x="34" y="54.5" width="140" height="1.6" fill="#14171c" opacity=".7"/>
+    <text x="52" y="62" font-size="6" font-weight="900" fill="#fff" opacity=".55" font-family="sans-serif">V6</text>`;
+  }
+  if(susId==='bora'){
+    // sabit arka kanat + kırmızı marşpiyel aksanı
+    ic += `<path d="M12 27 L34 27 L34 30.5 L12 30.5 Z" fill="${koyu2}" stroke="#000a" stroke-width=".8"/>
+    <rect x="15" y="30.5" width="3" height="5" fill="${koyu2}"/>
+    <rect x="28" y="30.5" width="3" height="5" fill="${koyu2}"/>
+    <rect x="32" y="63" width="136" height="2.4" rx="1.2" fill="#ff4d5e" opacity=".8"/>`;
+  }
+  if(susId==='yildirim'){
+    // altın neon + gövde boyunca altın şimşek şeridi
+    ic += `<ellipse cx="100" cy="73" rx="74" ry="3.4" fill="#ffb02e" opacity=".5"/>
+    <path d="M30 52 L96 52 L104 48 L112 54 L170 54" fill="none" stroke="#ffb02e" stroke-width="2.2" opacity=".9" stroke-linejoin="round"/>
+    <path d="M30 52 L96 52 L104 48 L112 54 L170 54" fill="none" stroke="#fff" stroke-width=".7" opacity=".6" stroke-linejoin="round"/>`;
+  }
   const y = Math.round(genislik*0.42);
   return `<svg class="araba-cizim" width="${genislik}" height="${y}" viewBox="0 0 200 84">${ic}</svg>`;
 }
@@ -1061,6 +1175,7 @@ async function isimKaydet(){
   paraYaz(); sekmeAc('garaj');
   ekranAc('garajEkrani');
   Muzik.baslat();   // kullanıcı dokunuşu içinde: AudioContext açılabilir
+  gunlukKontrol();
 }
 
 // ============ YARIŞ MOTORU (sahte-3D) ============
@@ -3065,6 +3180,9 @@ const MODEL_GORUNUM = {
   bogaz:  { gen:1.02, kasa:'kupe',   spoyler:null,   ledBar:true, trk:1.02, tire:0.158 },
   poyraz: { gen:1.06, kasa:'kupe',   spoyler:'kanat', serit:true, trk:1.06, tire:0.170 },
   efsane: { gen:1.16, kasa:'hiper',  spoyler:'kanat', ledBar:true, trk:1.12, tire:0.195 }, // çok geniş, kalın lastik
+  kartal: { gen:0.92, kasa:'sedan',  spoyler:'ruf',   serit:true, trk:0.95, tire:0.130 },
+  bora:   { gen:1.09, kasa:'kupe',   spoyler:'kanat', ledBar:true, trk:1.08, tire:0.178 },
+  yildirim:{ gen:1.20, kasa:'hiper', spoyler:'kanat', ledBar:true, serit:true, trk:1.15, tire:0.205 },
   generic:{ gen:0.88, kasa:'sedan',  spoyler:null,    trk:0.92, tire:0.115 }
 };
 function tekerCiz(ex, wheelW, wheelH, w, koyu2, oyuncu){
@@ -3445,10 +3563,84 @@ try{ $('girisAraba').innerHTML = arabaSVG('sahin', '#e63946', 250, 0); }catch(e)
   await profilYukle();
   if(profil.isim){
     paraYaz(); sekmeAc('garaj'); ekranAc('garajEkrani');
+    gunlukKontrol();
+    // tarayıcı ses politikası: ilk dokunuşta müziği başlat
+    const ilkDokunus = ()=>{ 
+      if(document.getElementById('garajEkrani').classList.contains('aktif')) Muzik.baslat();
+      document.removeEventListener('pointerdown', ilkDokunus);
+    };
+    document.addEventListener('pointerdown', ilkDokunus);
   } else {
     ekranAc('isimEkrani');
   }
 })();
+
+// ============ GÜNLÜK ÖDÜL ============
+const GUNLUK_ODUL = [500, 750, 1000, 1250, 1500, 2000, 3000];
+async function gunlukKontrol(){
+  const bugun = new Date().toISOString().slice(0,10);
+  if(profil.gunluk.son === bugun) return;      // bugün alınmış
+  const dun = new Date(Date.now()-864e5).toISOString().slice(0,10);
+  profil.gunluk.seri = (profil.gunluk.son === dun) ? Math.min(7, profil.gunluk.seri+1) : 1;
+  profil.gunluk.son = bugun;
+  const odul = GUNLUK_ODUL[profil.gunluk.seri-1];
+  profil.para += odul;
+  await profilKaydet(); paraYaz();
+  $('gunlukSeri').textContent = `${profil.gunluk.seri}. GÜN SERİSİ`;
+  $('gunlukMiktar').textContent = `+₺${odul.toLocaleString('tr-TR')}`;
+  $('gunlukTakvim').innerHTML = GUNLUK_ODUL.map((o,i)=>
+    `<div style="flex:1;max-width:44px;padding:6px 2px;border-radius:9px;font-size:9.5px;font-weight:700;
+      ${i < profil.gunluk.seri
+        ? 'background:linear-gradient(135deg,#ffd47a,var(--amber));color:#181000;'
+        : 'background:#0e131d;border:1px solid #232b3a;color:var(--muted);'}">
+      ${i+1}.gün<br><b>₺${o>=1000?(o/1000)+'K':o}</b></div>`).join('');
+  $('gunlukKaplama').classList.add('goster');
+  Ses.temiz();
+}
+
+// ============ DURAKLAT ============
+function duraklat(){
+  if(!oyun || oyun.durum!=='yaris') return;
+  oyun.durum = 'duraklat';
+  Ses.sustur();
+  const Z = ZORLUKLAR[H.zorluk] || {};
+  $('duraklatBilgi').textContent =
+    `${Math.round(oyun.mesafe)} / ${H.MESAFE} m · Sıra ${oyun.sira}/${1+oyun.hayaletler.length}` +
+    (turnuva && turnuva.aktif ? ` · Turnuva etap ${turnuva.etap+1}` : '');
+  $('btnDurSes').textContent = ayarlar.ses ? '🔊 Ses' : '🔇 Ses';
+  $('duraklatKaplama').classList.add('goster');
+}
+function devamEt(){
+  $('duraklatKaplama').classList.remove('goster');
+  // mini 3-2-1 sayımı
+  let n = 3;
+  $('geriSayim').classList.add('goster');
+  $('geriSayimYazi').textContent = n;
+  Ses.bip(false);
+  const ar = setInterval(()=>{
+    n--;
+    if(n > 0){ $('geriSayimYazi').textContent = n; Ses.bip(false); }
+    else {
+      clearInterval(ar);
+      $('geriSayim').classList.remove('goster');
+      if(oyun && oyun.durum==='duraklat'){ oyun.durum = 'yaris'; sonZaman = performance.now(); }
+    }
+  }, 650);
+}
+function yenidenBaslat(){
+  $('duraklatKaplama').classList.remove('goster');
+  yarisBaslat(H.id);
+}
+function yaristanCik(){
+  $('duraklatKaplama').classList.remove('goster');
+  if(turnuva) turnuva = null;
+  garajaDon();
+}
+function duraklatSes(){
+  ayarlar.ses = !ayarlar.ses;
+  sesUygula(); ayarlarKaydet();
+  $('btnDurSes').textContent = ayarlar.ses ? '🔊 Ses' : '🔇 Ses';
+}
 
 // ============ AYARLAR PANELİ ============
 function ayarlarAc(){
