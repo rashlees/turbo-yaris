@@ -1257,70 +1257,138 @@ const Ses = {
   }
 };
 
-// ============ MENÜ MÜZİĞİ (sakin lo-fi döngü, prosedürel) ============
+// ============ MENÜ MÜZİĞİ — "Gece Yarışı" (synthwave-lite, prosedürel) ============
 const Muzik = {
-  calan:false, timer:null, gain:null, filt:null, adim:0,
-  // Am7 → Fmaj7 → Cmaj7 → G  (yumuşak, huzurlu döngü)
+  calan:false, timer:null, gain:null, filt:null,
+  delay:null, delayFb:null, delayGain:null,
+  barNo:0, sonrakiBar:0,
+  BPM:92,
+  // A minör — Am7 → Fmaj7 → Cmaj7 → G (her akor 2 bar)
   akorlar: [
-    { bas:110.0, notalar:[220.0, 261.6, 329.6, 392.0] },   // Am7
-    { bas: 87.3, notalar:[174.6, 220.0, 261.6, 329.6] },   // Fmaj7
-    { bas:130.8, notalar:[196.0, 261.6, 329.6, 392.0] },   // Cmaj7
-    { bas: 98.0, notalar:[196.0, 246.9, 293.7, 392.0] }    // G
+    { bas:55.00, ped:[220.0, 261.6, 329.6, 392.0] },  // Am7 (A1 bas)
+    { bas:43.65, ped:[174.6, 220.0, 261.6, 329.6] },  // Fmaj7
+    { bas:65.41, ped:[196.0, 261.6, 329.6, 493.9] },  // Cmaj7
+    { bas:49.00, ped:[196.0, 246.9, 293.7, 392.0] }   // G
   ],
+  // melodi motifi: 8'lik adımlar, 2 bar = 16 adım (A minör pentatonik). 0 = sus
+  motifler: [
+    [440,0,523.3,0, 659.3,0,587.3,523.3, 440,0,392,0, 440,0,0,0],
+    [659.3,0,587.3,0, 523.3,0,440,392, 440,0,0,0, 329.6,0,392,0],
+    [523.3,0,440,0, 392,0,329.6,0, 440,0,523.3,587.3, 659.3,0,0,0],
+    [0,0,440,523.3, 587.3,0,523.3,0, 440,0,392,329.6, 220,0,0,0]
+  ],
+  hatVel:  [0.9,0.25,0.5,0.25, 0.85,0.25,0.5,0.3],
+  basKalip:[1,0,1,0, 0,1,0,1],   // 8'lik bas nabzı
+
+  _kur(){
+    this.gain = Ses.ac.createGain(); this.gain.gain.value = 0;
+    this.filt = Ses.ac.createBiquadFilter();
+    this.filt.type='lowpass'; this.filt.frequency.value=2600; this.filt.Q.value=0.4;
+    this.filt.connect(this.gain); this.gain.connect(Ses.master);
+    // melodi için gerçek delay (dotted-8th yankı — synthwave imzası)
+    this.delay = Ses.ac.createDelay(1.0);
+    this.delay.delayTime.value = (60/this.BPM) * 0.75;
+    this.delayFb = Ses.ac.createGain(); this.delayFb.gain.value = 0.32;
+    this.delayGain = Ses.ac.createGain(); this.delayGain.gain.value = 0.4;
+    this.delay.connect(this.delayFb); this.delayFb.connect(this.delay);
+    this.delay.connect(this.delayGain); this.delayGain.connect(this.filt);
+  },
   baslat(){
     Ses.baslat(); Ses.devam();
     if(!Ses.acik || this.calan) return;
     if(typeof ayarlar!=='undefined' && ayarlar.muzik===false) return;
-    if(!this.gain){
-      this.gain = Ses.ac.createGain(); this.gain.gain.value = 0;
-      this.filt = Ses.ac.createBiquadFilter();
-      this.filt.type='lowpass'; this.filt.frequency.value=1500; this.filt.Q.value=0.5;
-      this.filt.connect(this.gain); this.gain.connect(Ses.master);
-    }
+    if(!this.gain) this._kur();
     this.calan = true;
-    this.gain.gain.setTargetAtTime(1, Ses.ac.currentTime, 1.2);  // yumuşak giriş
-    this.adim = 0;
-    this._akorCal();
-    this.timer = setInterval(()=>this._akorCal(), 4000);
+    this.gain.gain.setTargetAtTime(1, Ses.ac.currentTime, 1.0);
+    this.barNo = 0;
+    this.sonrakiBar = Ses.ac.currentTime + 0.1;
+    // lookahead scheduler: drift yapmaz
+    this.timer = setInterval(()=>{
+      if(!this.calan) return;
+      const barSure = (60/this.BPM)*4;
+      while(this.sonrakiBar < Ses.ac.currentTime + 0.45){
+        this._barPlanla(this.sonrakiBar, this.barNo);
+        this.sonrakiBar += barSure; this.barNo++;
+      }
+    }, 120);
   },
   dur(){
     if(!this.calan) return;
     this.calan = false;
-    if(this.gain) this.gain.gain.setTargetAtTime(0, Ses.ac.currentTime, 0.5);
+    if(this.gain) this.gain.gain.setTargetAtTime(0, Ses.ac.currentTime, 0.45);
     clearInterval(this.timer); this.timer = null;
   },
-  _akorCal(){
-    if(!this.calan || !Ses.acik) return;
-    const t = Ses.ac.currentTime;
-    const akor = this.akorlar[this.adim % this.akorlar.length];
-    this.adim++;
-    // BAS: yumuşak üçgen, akor boyunca
-    const b = Ses.ac.createOscillator(); b.type='triangle'; b.frequency.value = akor.bas;
-    const bg = Ses.ac.createGain(); bg.gain.setValueAtTime(0.0001, t);
-    bg.gain.exponentialRampToValueAtTime(0.045, t+0.4);
-    bg.gain.setValueAtTime(0.045, t+3.0);
-    bg.gain.exponentialRampToValueAtTime(0.0001, t+4.1);
-    b.connect(bg); bg.connect(this.filt); b.start(t); b.stop(t+4.2);
-    // PED: 3 nota sine, çok yumuşak fade (akor halısı)
-    akor.notalar.slice(0,3).forEach((fr,i)=>{
-      const o = Ses.ac.createOscillator(); o.type='sine';
-      o.frequency.value = fr * (1 + (i-1)*0.0008);          // mikroskobik detune → sıcaklık
-      const g = Ses.ac.createGain(); g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.022, t+0.9);
-      g.gain.setValueAtTime(0.022, t+2.6);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+4.3);
-      o.connect(g); g.connect(this.filt); o.start(t); o.stop(t+4.4);
-    });
-    // ARPEJ: seyrek, tatlı 3 nota (üst oktavdan, çok hafif)
-    [0,1,2].forEach(i=>{
-      const t0 = t + 0.8 + i*1.05 + Math.random()*0.15;
-      const fr = akor.notalar[(i*2+1) % akor.notalar.length] * 2;
-      const o = Ses.ac.createOscillator(); o.type='sine'; o.frequency.value = fr;
-      const g = Ses.ac.createGain(); g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.014, t0+0.04);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0+1.1);
-      o.connect(g); g.connect(this.filt); o.start(t0); o.stop(t0+1.2);
-    });
+  _barPlanla(t0, bar){
+    const v8 = (60/this.BPM)/2;               // 8'lik süresi
+    const akor = this.akorlar[(bar>>1) % 4];  // 2 bar'da bir akor
+    const ac = Ses.ac;
+
+    // --- KICK (vuruş 0 ve 2, yumuşak) ---
+    for(const v of [0, 2]){
+      const t = t0 + v*v8*2;
+      const o = ac.createOscillator(); o.type='sine';
+      o.frequency.setValueAtTime(105, t);
+      o.frequency.exponentialRampToValueAtTime(42, t+0.10);
+      const g = ac.createGain(); g.gain.setValueAtTime(0.11, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+0.16);
+      o.connect(g); g.connect(this.filt); o.start(t); o.stop(t+0.18);
+    }
+    // --- HAT (8'likler, kısık tık) ---
+    for(let i=0;i<8;i++){
+      const t = t0 + i*v8;
+      const n = ac.createBufferSource(); n.buffer = Ses.gurultuBuf;
+      const f = ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=8200;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.013*this.hatVel[i], t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+0.035);
+      n.connect(f); f.connect(g); g.connect(this.filt);
+      n.start(t); n.stop(t+0.05);
+    }
+    // --- BAS (8'lik nabız; 4. vuruşta beşli) ---
+    for(let i=0;i<8;i++){
+      if(!this.basKalip[i]) continue;
+      const t = t0 + i*v8;
+      const nota = (i===7) ? akor.bas*1.5 : akor.bas;   // son vuruş beşli — yürüme hissi
+      const o = ac.createOscillator(); o.type='sawtooth'; o.frequency.value = nota*2;
+      const f = ac.createBiquadFilter(); f.type='lowpass'; f.frequency.value=300; f.Q.value=2;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.055, t+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+v8*0.92);
+      o.connect(f); f.connect(g); g.connect(this.filt);
+      o.start(t); o.stop(t+v8);
+    }
+    // --- PED (akor değişiminde, 2 bar sürer) ---
+    if(bar % 2 === 0){
+      const sure = (60/this.BPM)*8;
+      akor.ped.forEach((fr,i)=>{
+        const o = ac.createOscillator(); o.type = i%2 ? 'sine' : 'triangle';
+        o.frequency.value = fr * (1 + (i-1.5)*0.0007);
+        const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.016, t0+1.1);
+        g.gain.setValueAtTime(0.016, t0+sure-1.3);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0+sure);
+        o.connect(g); g.connect(this.filt); o.start(t0); o.stop(t0+sure+0.1);
+      });
+    }
+    // --- MELODİ (2 bar'lık motif + delay yankısı) ---
+    if(bar % 2 === 0){
+      const motif = this.motifler[(bar>>1) % this.motifler.length];
+      motif.forEach((fr,i)=>{
+        if(!fr) return;
+        const t = t0 + i*v8;
+        const o = ac.createOscillator(); o.type='triangle'; o.frequency.value = fr;
+        const o2 = ac.createOscillator(); o2.type='sine'; o2.frequency.value = fr*2.002;
+        const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.030, t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+v8*1.7);
+        const g2 = ac.createGain(); g2.gain.value = 0.3;
+        o.connect(g); o2.connect(g2); g2.connect(g);
+        g.connect(this.filt);
+        g.connect(this.delay);          // yankıya da gönder
+        o.start(t); o.stop(t+v8*1.8);
+        o2.start(t); o2.stop(t+v8*1.8);
+      });
+    }
   }
 };
 
