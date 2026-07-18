@@ -147,18 +147,143 @@
   .harita-alt { font-size:12px; color:var(--muted); margin-top:2px; }
   .zorluk-rozet { font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; white-space:nowrap; }
   .harita-detay { display:flex; gap:14px; margin-top:10px; font-size:12px; color:var(--muted); }
+  /* ============ MODERN GİRİŞ EKRANI ============ */
+  #isimEkrani { position:relative; overflow:hidden; }
+  .giris-bg { position:absolute; inset:0; pointer-events:none; }
+  .giris-yildizlar { position:absolute; inset:0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff8, transparent),
+      radial-gradient(1px 1px at 34% 8%, #fff6, transparent),
+      radial-gradient(1.5px 1.5px at 58% 22%, #fffa, transparent),
+      radial-gradient(1px 1px at 76% 12%, #fff5, transparent),
+      radial-gradient(1.5px 1.5px at 90% 26%, #fff7, transparent),
+      radial-gradient(1px 1px at 22% 32%, #fff5, transparent),
+      radial-gradient(1.2px 1.2px at 66% 35%, #fff6, transparent);
+    animation: yildizPar 4s ease-in-out infinite alternate; }
+  @keyframes yildizPar { from{opacity:.55} to{opacity:1} }
+  .giris-sehir { position:absolute; left:0; right:0; top:0; height:52%;
+    background:linear-gradient(180deg, #0b0e17 0%, #121a2e 55%, #1c2438 78%, transparent 100%); }
+  .giris-sehir::after { content:''; position:absolute; left:0; right:0; bottom:0; height:90px;
+    background:repeating-linear-gradient(90deg,
+        #10141f 0 26px, #0c1018 26px 34px, #131826 34px 58px, #0b0f17 58px 70px,
+        #151b2b 70px 96px, #0d1119 96px 108px);
+    -webkit-mask:linear-gradient(180deg,transparent 0, #000 42px);
+            mask:linear-gradient(180deg,transparent 0, #000 42px);
+    opacity:.85; }
+  .giris-yol { position:absolute; left:0; right:0; bottom:0; height:48%;
+    background:linear-gradient(180deg,#151a24 0%, #0f1219 100%);
+    -webkit-clip-path:polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+            clip-path:polygon(38% 0, 62% 0, 100% 100%, 0 100%); }
+  .yol-cizgi { position:absolute; left:50%; width:5px; margin-left:-2.5px; height:16%;
+    background:linear-gradient(180deg,#ffd47a,#ffb02e); border-radius:3px;
+    animation: yolAk 1.15s linear infinite; opacity:0; }
+  .yol-cizgi.c1 { animation-delay:0s; }
+  .yol-cizgi.c2 { animation-delay:.38s; }
+  .yol-cizgi.c3 { animation-delay:.76s; }
+  @keyframes yolAk {
+    0%   { top:-4%; transform:scaleX(.32) scaleY(.4); opacity:0; }
+    12%  { opacity:.9; }
+    100% { top:102%; transform:scaleX(1.25) scaleY(1.6); opacity:.95; } }
+  .giris-glow { position:absolute; left:50%; bottom:-16%; width:130%; height:44%;
+    transform:translateX(-50%);
+    background:radial-gradient(ellipse at 50% 100%, #ffb02e2e 0%, #ffb02e14 38%, transparent 68%); }
+  .giris-icerik { position:relative; display:flex; flex-direction:column;
+    justify-content:space-between; max-width:420px; margin:0 auto; width:100%;
+    padding-top:max(34px, env(safe-area-inset-top)); padding-bottom:26px; }
+  .giris-ust { text-align:center; }
+  .giris-logo { font-size:clamp(40px,11vw,52px); font-weight:900; font-style:italic;
+    letter-spacing:1px; line-height:1;
+    background:linear-gradient(180deg,#ffffff 20%,#c7d2e8 60%,#8fa0c0 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 2px 14px #0009);
+    animation: logoGel .7s cubic-bezier(.2,1.4,.4,1) both; }
+  .giris-logo span { display:block; margin-top:2px;
+    background:linear-gradient(180deg,#ffd47a 10%, var(--amber) 55%, #e08900 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 18px #ffb02e66); }
+  @keyframes logoGel { from{ transform:translateY(-26px) scale(.92); opacity:0; }
+                       to  { transform:none; opacity:1; } }
+  .giris-slogan { display:inline-block; margin-top:12px; padding:5px 16px;
+    font-size:11px; font-weight:800; letter-spacing:5px; color:var(--teal);
+    border:1px solid #2ee6c855; border-radius:999px; background:#2ee6c810;
+    animation: slogGel .7s .15s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes slogGel { from{ transform:translateY(-12px); opacity:0; } to{ transform:none; opacity:1; } }
+  .giris-araba { margin:18px auto 6px; width:min(66vw,250px);
+    animation: arabaSuzul 3.2s ease-in-out infinite alternate,
+               arabaGel .8s .25s cubic-bezier(.2,1.3,.4,1) both;
+    filter:drop-shadow(0 16px 22px #000a) drop-shadow(0 0 26px #ffb02e22); }
+  .giris-araba svg { width:100%; height:auto; }
+  @keyframes arabaSuzul { from{ transform:translateY(0); } to{ transform:translateY(-8px); } }
+  @keyframes arabaGel { from{ transform:translateX(-60px); opacity:0; } to{ opacity:1; } }
+  .giris-rozetler { display:flex; gap:8px; justify-content:center; margin-top:14px;
+    animation: slogGel .6s .4s both; }
+  .g-rozet { font-size:11.5px; font-weight:700; color:var(--muted);
+    padding:6px 12px; border-radius:999px;
+    background:#ffffff08; border:1px solid #ffffff14; backdrop-filter:blur(6px); }
+  .giris-panel { position:relative; padding:20px 18px 18px; border-radius:20px;
+    background:linear-gradient(165deg,#1b2130cc,#141925cc);
+    border:1px solid #ffffff16; backdrop-filter:blur(14px);
+    box-shadow:0 18px 44px #0008, inset 0 1px 0 #ffffff10;
+    animation: panelGel .7s .3s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes panelGel { from{ transform:translateY(46px); opacity:0; } to{ transform:none; opacity:1; } }
+  .giris-label { display:block; font-size:11px; font-weight:800; letter-spacing:2.5px;
+    color:var(--muted); margin-bottom:8px; }
+  .giris-input { width:100%; padding:14px 16px; font-size:17px; font-weight:600;
+    color:var(--text); background:#0d111a; border:1.5px solid #2a3142;
+    border-radius:13px; outline:none; transition:border-color .2s, box-shadow .2s; }
+  .giris-input::placeholder { color:#5a637a; font-weight:500; }
+  .giris-input:focus { border-color:var(--amber);
+    box-shadow:0 0 0 3px #ffb02e26, 0 0 22px #ffb02e1c; }
+  .giris-ipucu { font-size:11.5px; color:#6b7488; margin:8px 2px 14px; }
+  .giris-btn { position:relative; width:100%; display:flex; align-items:center;
+    justify-content:center; gap:9px; padding:15px; font-size:15px; font-weight:900;
+    letter-spacing:1.5px; color:#181000; border:none; border-radius:13px; cursor:pointer;
+    background:linear-gradient(135deg,#ffd47a 0%, var(--amber) 45%, #f09a10 100%);
+    box-shadow:0 8px 22px #ffb02e3d, inset 0 1px 0 #ffffff70;
+    transition:transform .12s, box-shadow .2s; overflow:hidden; }
+  .giris-btn:active { transform:scale(.97); }
+  .giris-btn::after { content:''; position:absolute; top:0; bottom:0; width:46%;
+    left:-60%; transform:skewX(-22deg);
+    background:linear-gradient(90deg,transparent,#ffffff55,transparent);
+    animation: btnParla 2.6s ease-in-out infinite; }
+  @keyframes btnParla { 0%,55%{ left:-60%; } 85%,100%{ left:130%; } }
 </style>
 </head>
 <body>
 
 <!-- İSİM EKRANI -->
 <div class="ekran aktif" id="isimEkrani">
-  <div class="icerik" style="display:flex;flex-direction:column;justify-content:center;max-width:420px;margin:0 auto;width:100%;">
-    <div class="logo" style="font-size:34px;text-align:center;margin-bottom:6px;">TURBO <span>YARIŞ</span></div>
-    <div style="text-align:center;color:var(--muted);margin-bottom:26px;font-size:14px;">Gece Ligi · Online skor tablosu</div>
-    <label style="font-size:13px;color:var(--muted);margin-bottom:6px;">Pilot adın (skor tablosunda herkese görünür)</label>
-    <input type="text" id="isimGiris" maxlength="14" placeholder="Örn: KaraSimsek34">
-    <button class="btn btn-ana" style="margin-top:14px;" onclick="isimKaydet()">Garaja gir</button>
+  <!-- animasyonlu arka plan -->
+  <div class="giris-bg">
+    <div class="giris-yildizlar"></div>
+    <div class="giris-sehir"></div>
+    <div class="giris-yol">
+      <div class="yol-cizgi c1"></div>
+      <div class="yol-cizgi c2"></div>
+      <div class="yol-cizgi c3"></div>
+    </div>
+    <div class="giris-glow"></div>
+  </div>
+  <div class="icerik giris-icerik">
+    <div class="giris-ust">
+      <div class="giris-logo">TURBO<span>YARIŞ</span></div>
+      <div class="giris-slogan">GECE LİGİ</div>
+      <div class="giris-araba" id="girisAraba"></div>
+      <div class="giris-rozetler">
+        <div class="g-rozet">🏁 3 Pist</div>
+        <div class="g-rozet">🏆 Turnuva</div>
+        <div class="g-rozet">🌍 Online Lig</div>
+      </div>
+    </div>
+    <div class="giris-panel">
+      <label class="giris-label">PİLOT ADIN</label>
+      <input type="text" id="isimGiris" class="giris-input" maxlength="14" placeholder="Örn: KaraSimsek34" autocomplete="off">
+      <div class="giris-ipucu">Skor tablosunda herkese görünür</div>
+      <button class="giris-btn" onclick="isimKaydet()">
+        <span>YARIŞA HAZIRLAN</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -2899,6 +3024,8 @@ addEventListener('keyup', e=>{
   if(e.key===' '||e.key==='Shift') girdi.nitro=false;
 });
 $('isimGiris').addEventListener('keydown', e=>{ if(e.key==='Enter') isimKaydet(); });
+// giriş ekranı: süzülen kırmızı Şahin
+try{ $('girisAraba').innerHTML = arabaSVG('sahin', '#e63946', 250, 0); }catch(e){}
 
 // ============ BAŞLAT ============
 (async ()=>{
