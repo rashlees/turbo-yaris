@@ -402,6 +402,13 @@
         </div>
         <label class="anahtar"><input type="checkbox" id="aySes" onchange="aySesDegis()"><span></span></label>
       </div>
+      <div class="ayar-satir">
+        <div>
+          <div class="ayar-ad">🎵 Menü müziği</div>
+          <div class="ayar-not">Garaj ekranında sakin fon müziği</div>
+        </div>
+        <label class="anahtar"><input type="checkbox" id="ayMuzik" onchange="ayMuzikDegis()"><span></span></label>
+      </div>
       <div class="ayar-satir" id="aySesSeviyeSatir">
         <div class="ayar-ad" style="font-weight:600;color:var(--muted);">Ses seviyesi</div>
         <input type="range" id="aySesSeviye" min="10" max="100" step="5" oninput="aySeviyeDegis()" class="ayar-slider">
@@ -525,6 +532,7 @@ let profil = null;
 let ayarlar = {
   ses: true,          // ses açık/kapalı
   sesSeviye: 0.5,     // 0..1
+  muzik: true,        // menü müziği
   egim: false,        // telefonu eğerek direksiyon
   egimHassas: 1.0,    // 0.6 / 1.0 / 1.5
   titresim: true      // çarpışmada titreşim
@@ -977,6 +985,7 @@ async function isimKaydet(){
   await profilKaydet();
   paraYaz(); sekmeAc('garaj');
   ekranAc('garajEkrani');
+  Muzik.baslat();   // kullanıcı dokunuşu içinde: AudioContext açılabilir
 }
 
 // ============ YARIŞ MOTORU (sahte-3D) ============
@@ -1248,6 +1257,73 @@ const Ses = {
   }
 };
 
+// ============ MENÜ MÜZİĞİ (sakin lo-fi döngü, prosedürel) ============
+const Muzik = {
+  calan:false, timer:null, gain:null, filt:null, adim:0,
+  // Am7 → Fmaj7 → Cmaj7 → G  (yumuşak, huzurlu döngü)
+  akorlar: [
+    { bas:110.0, notalar:[220.0, 261.6, 329.6, 392.0] },   // Am7
+    { bas: 87.3, notalar:[174.6, 220.0, 261.6, 329.6] },   // Fmaj7
+    { bas:130.8, notalar:[196.0, 261.6, 329.6, 392.0] },   // Cmaj7
+    { bas: 98.0, notalar:[196.0, 246.9, 293.7, 392.0] }    // G
+  ],
+  baslat(){
+    Ses.baslat(); Ses.devam();
+    if(!Ses.acik || this.calan) return;
+    if(typeof ayarlar!=='undefined' && ayarlar.muzik===false) return;
+    if(!this.gain){
+      this.gain = Ses.ac.createGain(); this.gain.gain.value = 0;
+      this.filt = Ses.ac.createBiquadFilter();
+      this.filt.type='lowpass'; this.filt.frequency.value=1500; this.filt.Q.value=0.5;
+      this.filt.connect(this.gain); this.gain.connect(Ses.master);
+    }
+    this.calan = true;
+    this.gain.gain.setTargetAtTime(1, Ses.ac.currentTime, 1.2);  // yumuşak giriş
+    this.adim = 0;
+    this._akorCal();
+    this.timer = setInterval(()=>this._akorCal(), 4000);
+  },
+  dur(){
+    if(!this.calan) return;
+    this.calan = false;
+    if(this.gain) this.gain.gain.setTargetAtTime(0, Ses.ac.currentTime, 0.5);
+    clearInterval(this.timer); this.timer = null;
+  },
+  _akorCal(){
+    if(!this.calan || !Ses.acik) return;
+    const t = Ses.ac.currentTime;
+    const akor = this.akorlar[this.adim % this.akorlar.length];
+    this.adim++;
+    // BAS: yumuşak üçgen, akor boyunca
+    const b = Ses.ac.createOscillator(); b.type='triangle'; b.frequency.value = akor.bas;
+    const bg = Ses.ac.createGain(); bg.gain.setValueAtTime(0.0001, t);
+    bg.gain.exponentialRampToValueAtTime(0.045, t+0.4);
+    bg.gain.setValueAtTime(0.045, t+3.0);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t+4.1);
+    b.connect(bg); bg.connect(this.filt); b.start(t); b.stop(t+4.2);
+    // PED: 3 nota sine, çok yumuşak fade (akor halısı)
+    akor.notalar.slice(0,3).forEach((fr,i)=>{
+      const o = Ses.ac.createOscillator(); o.type='sine';
+      o.frequency.value = fr * (1 + (i-1)*0.0008);          // mikroskobik detune → sıcaklık
+      const g = Ses.ac.createGain(); g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.022, t+0.9);
+      g.gain.setValueAtTime(0.022, t+2.6);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+4.3);
+      o.connect(g); g.connect(this.filt); o.start(t); o.stop(t+4.4);
+    });
+    // ARPEJ: seyrek, tatlı 3 nota (üst oktavdan, çok hafif)
+    [0,1,2].forEach(i=>{
+      const t0 = t + 0.8 + i*1.05 + Math.random()*0.15;
+      const fr = akor.notalar[(i*2+1) % akor.notalar.length] * 2;
+      const o = Ses.ac.createOscillator(); o.type='sine'; o.frequency.value = fr;
+      const g = Ses.ac.createGain(); g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.014, t0+0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+1.1);
+      o.connect(g); g.connect(this.filt); o.start(t0); o.stop(t0+1.2);
+    });
+  }
+};
+
 function bolgeIdx(m){
   const s = H.sinirlar;
   return m<s[0]?0 : m<s[1]?1 : m<s[2]?2 : 3;
@@ -1344,6 +1420,7 @@ async function yarisBaslat(haritaId){
     hasarCarp:Z.hasarCarp, odulCarp:Z.odulCarp, zorluk:secilenZorluk
   };
   ekranAc('yarisEkrani');
+  Muzik.dur();
   if(ayarlar.egim) egimBaslat();
   $('bitisKaplama').classList.remove('goster');
   // bitiş ekranı butonlarını varsayılana döndür (turnuva bunları değiştiriyor)
@@ -1813,6 +1890,7 @@ async function turnuvaFinalGoster(){
   turnuva.aktif = false;
 }
 function garajaDon(){
+  Muzik.baslat();
   paraYaz(); sekmeAc('garaj'); ekranAc('garajEkrani');
 }
 
@@ -2139,7 +2217,7 @@ function ciz(){
   const yolW = onSeg ? onSeg.w1 * 2 : G*0.66;   // ekrandaki tam yol genişliği (px)
   const seritW = yolW / 4;                       // bir şeridin px genişliği
   const oyMg = (MODEL_GORUNUM[profil.secili]||MODEL_GORUNUM.generic).gen;
-  const oyW = Math.max(68, Math.min(seritW * 0.95 * oyMg, G*0.38));
+  const oyW = Math.max(60, Math.min(seritW * 0.78 * oyMg, G*0.32));
   ctx.save();
   ctx.translate(G/2 + o.lean*9, Y*0.93);
   ctx.rotate(o.lean*0.045);
@@ -3171,6 +3249,7 @@ try{ $('girisAraba').innerHTML = arabaSVG('sahin', '#e63946', 250, 0); }catch(e)
 // ============ AYARLAR PANELİ ============
 function ayarlarAc(){
   $('aySes').checked = ayarlar.ses;
+  $('ayMuzik').checked = ayarlar.muzik;
   $('aySesSeviye').value = Math.round(ayarlar.sesSeviye*100);
   $('ayEgim').checked = ayarlar.egim;
   $('ayTitresim').checked = ayarlar.titresim;
@@ -3189,6 +3268,10 @@ function aySesDegis(){
   $('aySesSeviyeSatir').style.opacity = ayarlar.ses ? 1 : 0.4;
   sesUygula();
   if(ayarlar.ses){ Ses.baslat(); Ses.devam(); Ses.bip(false); }
+}
+function ayMuzikDegis(){
+  ayarlar.muzik = $('ayMuzik').checked;
+  if(ayarlar.muzik) Muzik.baslat(); else Muzik.dur();
 }
 function aySeviyeDegis(){
   ayarlar.sesSeviye = $('aySesSeviye').value/100;
