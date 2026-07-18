@@ -79,8 +79,13 @@
   .nokta { width:14px; height:6px; border-radius:3px; background:var(--panel2); }
   .nokta.dolu { background:var(--amber); }
   .renkler { display:flex; gap:10px; flex-wrap:wrap; padding:4px 0 12px; }
-  .renk-top { width:36px; height:36px; border-radius:50%; border:3px solid transparent; cursor:pointer; }
+  .renk-top { width:36px; height:36px; border-radius:50%; border:3px solid transparent; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:13px; position:relative; }
   .renk-top.secili { border-color:#fff; }
+  .renk-top.kilitli { opacity:.7; }
+  .renk-top.kilitli::after { content:''; position:absolute; inset:-3px; border-radius:50%;
+    background:rgba(0,0,0,.35); }
+  .renk-top.kilitli { text-shadow:0 1px 2px #000; z-index:1; }
 
   #yarisEkrani { background:#0a0c10; }
   #pist { display:block; width:100%; flex:1; touch-action:none; }
@@ -95,11 +100,28 @@
     border-top:2px solid var(--line); flex-shrink:0;
   }
   .kbtn {
-    flex:1; padding:20px 0; font-size:24px; border-radius:14px; border:1px solid var(--line);
+    flex:1; padding:16px 0; border-radius:16px; border:1px solid var(--line);
     background:var(--panel2); color:var(--text); font-weight:900; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .08s, background .1s, box-shadow .1s; -webkit-tap-highlight-color:transparent;
   }
-  .kbtn:active { background:var(--line); }
-  .kbtn.nitro { background:#1a2f2b; color:var(--teal); border-color:var(--teal); font-size:16px; }
+  .kbtn.yon { max-width:96px; color:#cfd6e2; }
+  .kbtn.yon:active { background:linear-gradient(180deg,#2a3344,#1a2130);
+    box-shadow:inset 0 0 18px #4d7cff30; transform:scale(.94); color:#fff; }
+  .kbtn.nos { position:relative; flex-direction:column; gap:2px;
+    background:linear-gradient(180deg,#153029,#0e211d); color:var(--teal);
+    border-color:#2ee6c855; box-shadow:0 0 16px #2ee6c81a, inset 0 1px 0 #ffffff10; overflow:hidden; }
+  .kbtn.nos:active { transform:scale(.96); box-shadow:0 0 26px #2ee6c840, inset 0 0 22px #2ee6c830; }
+  .kbtn.nos.hazir { animation:nosNabiz 1.3s ease-in-out infinite; }
+  @keyframes nosNabiz { 0%,100%{ box-shadow:0 0 14px #2ee6c822, inset 0 1px 0 #ffffff10; }
+                        50%{ box-shadow:0 0 26px #2ee6c855, inset 0 1px 0 #ffffff10; } }
+  .kbtn.nos.bos { opacity:.5; filter:grayscale(.5); }
+  .nos-etiket { font-size:12px; font-weight:900; letter-spacing:2px; }
+  .nos-cubuk { position:absolute; left:10px; right:10px; bottom:8px; height:4px;
+    background:#0a1512; border-radius:2px; overflow:hidden; }
+  .nos-cubuk i { display:block; height:100%; width:100%;
+    background:linear-gradient(90deg,#2ee6c8,#7dffe8); border-radius:2px; transition:width .12s linear; }
+  .kbtn.nitro { background:#1a2f2b; color:var(--teal); border-color:var(--teal); }
 
   .kaplama {
     position:absolute; inset:0; background:rgba(10,12,16,.88); display:none;
@@ -437,9 +459,17 @@
     </div>
   </div>
   <div class="kontroller">
-    <button class="kbtn" id="btnSol">◀</button>
-    <button class="kbtn nitro" id="btnNitro">NİTRO 🔥</button>
-    <button class="kbtn" id="btnSag">▶</button>
+    <button class="kbtn yon" id="btnSol">
+      <svg viewBox="0 0 40 40" width="32" height="32"><path d="M25 8 L13 20 L25 32" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="kbtn nos" id="btnNitro">
+      <svg viewBox="0 0 44 44" width="30" height="30"><path d="M22 3 C13 14 9 20 9 27 a13 13 0 0 0 26 0 C35 20 31 14 22 3 Z" fill="currentColor" opacity=".22"/><path d="M22 12 C17 19 15 22 15 27 a7 7 0 0 0 14 0 C29 22 27 19 22 12 Z" fill="currentColor"/></svg>
+      <span class="nos-etiket">NOS</span>
+      <span class="nos-cubuk"><i id="nosBar"></i></span>
+    </button>
+    <button class="kbtn yon" id="btnSag">
+      <svg viewBox="0 0 40 40" width="32" height="32"><path d="M15 8 L27 20 L15 32" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 </div>
 
@@ -555,7 +585,17 @@ const MODLAR = [
   { id:'nitro',   ad:'Nitro tüpü',       etki:'nitro', aciklama:'Nitro gücü +7 / seviye',       maliyet:750 },
   { id:'agirlik', ad:'Ağırlık azaltma',  etki:'ivme2', aciklama:'Hızlanma +3 ve tutuş +3',      maliyet:900 },
 ];
-const RENKLER = ['#e63946','#ffb02e','#2ee6c8','#4d7cff','#c084fc','#f4f4f4','#242424','#7bd94a'];
+// Renk paleti: ilk 3 bedava (siyah/beyaz/kırmızı), gerisi satın alınır
+const RENK_BEDAVA = ['#242424', '#f4f4f4', '#e63946'];
+const RENK_PARALI = [
+  { renk:'#ffb02e', ad:'Altın Sarı', fiyat:1500 },
+  { renk:'#2ee6c8', ad:'Turkuaz',    fiyat:1500 },
+  { renk:'#4d7cff', ad:'Elektrik Mavi', fiyat:2000 },
+  { renk:'#c084fc', ad:'Neon Mor',   fiyat:2000 },
+  { renk:'#7bd94a', ad:'Yarış Yeşili', fiyat:2500 },
+  { renk:'#ff6b1a', ad:'Alev Turuncu', fiyat:3000 }
+];
+const RENKLER = [...RENK_BEDAVA, ...RENK_PARALI.map(r=>r.renk)];
 const MAKS_SEVIYE = 5;
 
 // ============ HARİTALAR ============
@@ -649,8 +689,29 @@ const varsayilanProfil = () => ({
   arabalar:{ sahin:{ mod:{motor:0,turbo:0,lastik:0,nitro:0,agirlik:0}, renk:'#e63946' } },
   secili:'sahin', enIyi:null,
   stat:{ yaris:0, birinci:0, sampiyon:0, mesafe:0, enKombo:0, kilPayi:0, hasarsiz:0, enHiz:0, kazanc:0 },
-  basarimlar:{}
+  basarimlar:{}, acikRenkler:['#242424','#f4f4f4','#e63946'],
+  ligPuan:0
 });
+
+// ============ LİG SİSTEMİ (5 kademe, puanla yüksel) ============
+const LIGLER = [
+  { ad:'BRONZ',   ikon:'🥉', renk:'#cd7f32', esik:0 },
+  { ad:'GÜMÜŞ',   ikon:'🥈', renk:'#c0c8d4', esik:300 },
+  { ad:'ALTIN',   ikon:'🥇', renk:'#ffb02e', esik:800 },
+  { ad:'PLATİN',  ikon:'💎', renk:'#2ee6c8', esik:1800 },
+  { ad:'ELMAS',   ikon:'👑', renk:'#8a7dff', esik:3500 }
+];
+function ligBul(puan){
+  let idx = 0;
+  for(let i=0;i<LIGLER.length;i++) if(puan >= LIGLER[i].esik) idx = i;
+  return idx;
+}
+// yarış sonucuna göre lig puanı (1.=+30, 2.=+18, 3.=+10, 4.=+4; zor mod bonuslu)
+function ligPuanKazan(siralama, toplam, zorluk){
+  const taban = [30, 18, 10, 4, 2][Math.min(siralama-1, 4)] || 2;
+  const zorCarp = zorluk==='zor' ? 1.6 : zorluk==='orta' ? 1.2 : 1;
+  return Math.round(taban * zorCarp);
+}
 
 // ============ BAŞARIMLAR ============
 const BASARIMLAR = [
@@ -658,12 +719,22 @@ const BASARIMLAR = [
   { id:'ilkZafer',  ikon:'🥇', ad:'İlk Zafer',       not:'Bir yarışta 1. ol',               odul:1000, k:st=>st.birinci>=1 },
   { id:'kombo5',    ikon:'🔥', ad:'Sollama Ustası',  not:'Tek yarışta 5 kombo yap',         odul:800,  k:st=>st.enKombo>=5 },
   { id:'kombo10',   ikon:'⚡', ad:'Durdurulamaz',    not:'Tek yarışta 10 kombo yap',        odul:2000, k:st=>st.enKombo>=10 },
+  { id:'kombo20',   ikon:'🌟', ad:'Kombo Kralı',     not:'Tek yarışta 20 kombo yap',        odul:4000, k:st=>st.enKombo>=20 },
   { id:'hasarsiz',  ikon:'✨', ad:'Tertemiz',        not:'Hasarsız yarış bitir',            odul:1000, k:st=>st.hasarsiz>=1 },
+  { id:'hasarsiz10',ikon:'🧼', ad:'Kusursuz Pilot',  not:'10 hasarsız yarış bitir',         odul:3000, k:st=>st.hasarsiz>=10 },
   { id:'hizli',     ikon:'💨', ad:'Hız Tutkunu',     not:'200 km/s hıza ulaş',              odul:600,  k:st=>st.enHiz>=200 },
+  { id:'hizli280',  ikon:'🚀', ad:'Ses Duvarı',      not:'280 km/s hıza ulaş',              odul:2500, k:st=>st.enHiz>=280 },
   { id:'sampiyon',  ikon:'🏆', ad:'Şampiyon',        not:'Turnuva şampiyonu ol',            odul:3000, k:st=>st.sampiyon>=1 },
+  { id:'sampiyon3', ikon:'👑', ad:'Efsane',          not:'3 turnuva kazan',                 odul:6000, k:st=>st.sampiyon>=3 },
   { id:'veteran',   ikon:'🎖️', ad:'Veteran',         not:'20 yarış tamamla',                odul:2500, k:st=>st.yaris>=20 },
+  { id:'veteran50', ikon:'🏅', ad:'Pist Efsanesi',   not:'50 yarış tamamla',                odul:5000, k:st=>st.yaris>=50 },
   { id:'mesafe25',  ikon:'🛣️', ad:'Yol Kurdu',       not:'Toplam 25 km yol yap',            odul:1200, k:st=>st.mesafe>=25000 },
-  { id:'kilPayi15', ikon:'😱', ad:'Buz Gibi Sinir',  not:'Toplam 15 kıl payı geçiş',        odul:1500, k:st=>st.kilPayi>=15 }
+  { id:'mesafe100', ikon:'🌍', ad:'Kâşif',           not:'Toplam 100 km yol yap',           odul:4000, k:st=>st.mesafe>=100000 },
+  { id:'kilPayi15', ikon:'😱', ad:'Buz Gibi Sinir',  not:'Toplam 15 kıl payı geçiş',        odul:1500, k:st=>st.kilPayi>=15 },
+  { id:'kilPayi50', ikon:'🧊', ad:'Ölüme Meydan',    not:'Toplam 50 kıl payı geçiş',        odul:3500, k:st=>st.kilPayi>=50 },
+  { id:'birinci10', ikon:'🏆', ad:'Seri Galip',      not:'10 yarış birincilik',             odul:3000, k:st=>st.birinci>=10 },
+  { id:'zengin',    ikon:'💰', ad:'Zengin Pilot',    not:'Toplam ₺100.000 kazan',           odul:2000, k:st=>st.kazanc>=100000 },
+  { id:'koleksiyon',ikon:'🚗', ad:'Koleksiyoncu',    not:'5 farklı araba sahibi ol',        odul:3000, k:st=>Object.keys(profil.arabalar).length>=5 }
 ];
 function basarimKontrol(){
   // stat'a göre yeni kazanılan başarımları bul, ödülü ver, listeyi döndür
@@ -687,6 +758,8 @@ async function profilYukle(){
   if(!profil.stat) profil.stat = varsayilanProfil().stat;
   if(!profil.basarimlar) profil.basarimlar = {};
   if(!profil.gunluk) profil.gunluk = { son:'', seri:0 };
+  if(!profil.acikRenkler) profil.acikRenkler = ['#242424','#f4f4f4','#e63946'];
+  if(profil.ligPuan===undefined) profil.ligPuan = 0;
 }
 async function profilKaydet(){
   try{ await window.storage.set('profil', JSON.stringify(profil)); }
@@ -728,6 +801,21 @@ function ekranAc(id){
   $(id).classList.add('aktif');
 }
 function paraYaz(){ $('paraGosterge').textContent = '₺ ' + profil.para.toLocaleString('tr-TR'); }
+function bildirim(mesaj){
+  let el = $('toastBildirim');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'toastBildirim';
+    el.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:200;'+
+      'background:#1c2230ee;color:#fff;padding:11px 20px;border-radius:12px;border:1px solid #ffffff22;'+
+      'font-size:13px;font-weight:600;box-shadow:0 8px 24px #0009;opacity:0;transition:opacity .2s,transform .2s;backdrop-filter:blur(8px);';
+    document.body.appendChild(el);
+  }
+  el.textContent = mesaj;
+  el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(10px)'; }, 2200);
+}
 function sureYaz(sn){
   const d = Math.floor(sn/60), s = Math.floor(sn%60), ms = Math.floor((sn%1)*100);
   return (d>0? d+':' : '') + String(s).padStart(2,'0') + '.' + String(ms).padStart(2,'0');
@@ -1117,7 +1205,14 @@ function modifiyeCiz(){
     </div>
     <div class="bilgi-kutu" style="margin-bottom:10px;">🔧 Görsel yükseltmeler: toplam <b>6+ seviye</b> yarış şeritleri, <b>12+ seviye</b> altın spor jantlar ve arka kanat ekler.</div>
     <div style="font-weight:800;margin:8px 0 6px;font-size:14px;color:var(--muted);">RENK</div>
-    <div class="renkler">${RENKLER.map(r=>`<div class="renk-top ${veri.renk===r?'secili':''}" style="background:${r}" onclick="renkSec('${r}')"></div>`).join('')}</div>
+    <div class="renkler">${RENKLER.map(r=>{
+        const acik = profil.acikRenkler.includes(r);
+        const pr = RENK_PARALI.find(x=>x.renk===r);
+        return `<div class="renk-top ${veri.renk===r?'secili':''} ${acik?'':'kilitli'}" style="background:${r}"
+          onclick="${acik?`renkSec('${r}')`:`renkAl('${r}')`}"
+          title="${acik?'':(pr?pr.ad+' · ₺'+pr.fiyat:'')}">${acik?'':'🔒'}</div>`;
+      }).join('')}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">🔒 kilitli renkler tıklayınca satın alınır</div>
     <div style="font-weight:800;margin:4px 0 8px;font-size:14px;color:var(--muted);">PARÇALAR</div>`;
   for(const m of MODLAR){
     const sv = veri.mod[m.id];
@@ -1150,10 +1245,47 @@ async function renkSec(r){
   profil.arabalar[profil.secili].renk = r;
   await profilKaydet(); modifiyeCiz();
 }
+async function renkAl(r){
+  const pr = RENK_PARALI.find(x=>x.renk===r);
+  if(!pr) return;
+  if(profil.para < pr.fiyat){ bildirim('Yetersiz bakiye — ₺'+pr.fiyat+' gerekli'); return; }
+  profil.para -= pr.fiyat;
+  profil.acikRenkler.push(r);
+  profil.arabalar[profil.secili].renk = r;   // aldın, direkt uygula
+  await profilKaydet(); paraYaz(); modifiyeCiz();
+  Ses.temiz();
+}
 async function liderCiz(){
   $('garajIcerik').innerHTML = '<div class="bos-mesaj">Yükleniyor…</div>';
   const liste = await ligYukle();
-  let h = `<div class="bilgi-kutu">🌍 Bu tablo <b>tüm online oyuncular</b> arasında paylaşılır. Pilot adın ve en iyi süren herkese görünür. Yarıştığında tablodaki en hızlı 3 kişi pistte <b>hayalet rakip</b> olarak seninle yarışır.</div>`;
+  const li = ligBul(profil.ligPuan);
+  const L = LIGLER[li];
+  const sonraki = LIGLER[li+1];
+  const ilerleme = sonraki
+    ? Math.round((profil.ligPuan - L.esik) / (sonraki.esik - L.esik) * 100)
+    : 100;
+  // lig kademesi başlığı
+  let h = `<div style="text-align:center;padding:16px;border-radius:16px;margin-bottom:14px;
+      background:linear-gradient(135deg,${L.renk}22,${L.renk}08);border:1.5px solid ${L.renk}66;">
+    <div style="font-size:42px;line-height:1;">${L.ikon}</div>
+    <div style="font-size:22px;font-weight:900;color:${L.renk};letter-spacing:2px;margin:4px 0;">${L.ad} LİG</div>
+    <div style="font-size:13px;color:var(--muted);">${profil.ligPuan} lig puanı</div>
+    ${sonraki ? `<div style="margin-top:10px;">
+      <div style="height:8px;background:#0e131d;border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${ilerleme}%;background:linear-gradient(90deg,${L.renk},${sonraki.renk});border-radius:4px;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">${sonraki.ikon} ${sonraki.ad}'e ${sonraki.esik - profil.ligPuan} puan</div>
+    </div>` : `<div style="font-size:12px;color:${L.renk};margin-top:8px;font-weight:800;">🏆 EN YÜKSEK LİG!</div>`}
+  </div>
+  <div style="display:flex;gap:5px;margin-bottom:14px;">
+    ${LIGLER.map((lg,i)=>`<div style="flex:1;text-align:center;padding:7px 2px;border-radius:9px;
+      background:${i===li?lg.renk+'22':'#0e131d'};border:1px solid ${i===li?lg.renk:'#232b3a'};
+      ${i<=li?'':'opacity:.5;'}">
+      <div style="font-size:15px;">${lg.ikon}</div>
+      <div style="font-size:8.5px;color:${i===li?lg.renk:'var(--muted)'};font-weight:700;margin-top:1px;">${lg.ad}</div>
+    </div>`).join('')}
+  </div>
+  <div style="font-weight:800;font-size:13px;color:var(--muted);margin-bottom:8px;">🌍 EN HIZLILAR</div>`;
   if(liste.length===0){
     h += '<div class="bos-mesaj">Henüz kayıt yok. İlk rekoru sen kır! 🏆</div>';
   } else {
@@ -1725,7 +1857,7 @@ async function yarisBaslat(haritaId){
   oyun = {
     st, mesafe:0, hiz:0, sure:0, durum:'sayim',
     px:0, lean:0,
-    nitroDolu:100, nitroAktif:false,
+    nitroDolu:100, nitroAktif:false, nosAktif:false, nosSure:0,
     trafik:[], sonTrafik:1.3/H.trafikYogunluk,
     hayaletler, carpTitre:0,
     sonBolge:-1, bolgeYazi:'', bolgeSure:0,
@@ -1743,14 +1875,16 @@ async function yarisBaslat(haritaId){
   // BAŞLANGIÇ TRAFİĞİ: yolda hazır araçlar (oyuncu hemen sollamaya başlasın)
   {
     const n = H.trafikYogunluk > 1.3 ? 5 : 4;
+    const baslaSerit = [-0.6, -0.2, 0.2, 0.6];
     for(let i=0;i<n;i++){
+      const sx = baslaSerit[i % 4];
       oyun.trafik.push({
-        z: 90 + i*95 + Math.random()*45,           // 90m'den itibaren serpiştir
-        x: [-0.62,-0.21,0.21,0.62][Math.floor(Math.random()*4)],
-        hiz: (52+Math.random()*38)/3.6,
+        z: 90 + i*95 + Math.random()*45,
+        x: sx, hedefX: sx,
+        hiz: (50+Math.random()*40)/3.6,
         model: ['sahin','dogan','generic','generic'][Math.floor(Math.random()*4)],
         renk: ['#8b94a8','#6b7385','#59617a','#7a8296','#4e5568'][Math.floor(Math.random()*5)],
-        gecti:false
+        gecti:false, seritZaman: 2+Math.random()*4
       });
     }
   }
@@ -1793,13 +1927,34 @@ function guncelle(dt){
     // sollama turbosu: kısa süreli hız+ivme artışı (süre azalır)
     o.sollamaTurbo = Math.max(0, (o.sollamaTurbo||0) - dt);
     const turboVar = o.sollamaTurbo > 0;
-    const turboCarp = turboVar ? 1.07 : 1;      // %7 hız artışı (az bir şey)
-    const turboIvme = turboVar ? 1.5 : 1;       // ivmelenme belirgin hissedilsin
-    const maksMs = o.st.hiz/3.6 * (o.nitroAktif?1.25:1) * turboCarp * hasarCarpan;
-    const ivmeMs = o.st.ivme/3.6 * (o.nitroAktif?2.2:1) * turboIvme * hasarCarpan;
-    o.hiz = Math.min(o.hiz + ivmeMs*dt*2.2, maksMs);
-    o.nitroAktif = girdi.nitro && o.nitroDolu>0;
-    if(o.nitroAktif) o.nitroDolu = Math.max(0, o.nitroDolu - dt*(38 - o.st.nitro*0.18));
+    const turboCarp = turboVar ? 1.07 : 1;
+
+    // ---- NOS (basılı tutulan değil, tetiklenen — süreli) ----
+    // basınca dolu varsa 2.2sn'lik patlama başlar; bittiğinde yeniden dolması gerekir
+    if(girdi.nitro && !o.nosAktif && o.nitroDolu >= 25 && (o.nosSure||0) <= 0){
+      o.nosAktif = true; o.nosSure = 2.2;
+      o.nitroDolu = Math.max(0, o.nitroDolu - 25);
+    }
+    if(o.nosAktif){
+      o.nosSure -= dt;
+      if(o.nosSure <= 0){ o.nosAktif = false; o.nosSure = 0; }
+    }
+    o.nitroAktif = o.nosAktif;   // ses/efekt uyumu için
+    // NOS dışında nitro yavaşça dolar (temiz sürüş/sollama da ekler)
+    if(!o.nosAktif) o.nitroDolu = Math.min(100, o.nitroDolu + dt*(6 + o.st.nitro*0.10));
+
+    // ---- KADEMELİ HIZLANMA (vites hissi) ----
+    // Hedef maks hız; oyuncu ona ANINDA değil, ivmeyle yaklaşır. Yüksek hızda ivme azalır (gerçekçi).
+    const maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
+    const oran = o.hiz / Math.max(1, maksMs);              // 0..1 mevcut/maks
+    // ivme eğrisi: düşük hızda güçlü, tavana yaklaşınca zayıf (vites geçişi hissi)
+    const ivmeTaban = o.st.ivme/3.6 * hasarCarpan;
+    const ivmeAnlik = ivmeTaban * (1 - oran*0.82) * (o.nosAktif?2.0:1);
+    if(o.hiz < maksMs){
+      o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*0.85);
+    } else {
+      o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);   // maks düşünce yumuşak in
+    }
     o.mesafe += o.hiz*dt*1.7;
     // direksiyon
     let yon = (girdi.sag?1:0) - (girdi.sol?1:0);
@@ -1818,7 +1973,7 @@ function guncelle(dt){
       o.px = Math.min(o.px, sinir+0.16);
       o.hiz *= Math.max(0, 1 - 1.9*dt);
       o.carpTitre = Math.max(o.carpTitre, 0.1);
-      o.hasar = Math.min(1, o.hasar + 0.02*H.hasarCarp);
+      o.hasar = Math.min(1, o.hasar + 0.008*H.hasarCarp);
       o.temizSure = 0; o.kombo = Math.floor((o.kombo||0)/2);
       if(Math.random() < dt*6) Ses.carp(0.45);   // hafif sürtünme
       kivilcim(o, 1);
@@ -1826,7 +1981,7 @@ function guncelle(dt){
       o.px = Math.max(o.px, -sinir-0.16);
       o.hiz *= Math.max(0, 1 - 1.9*dt);
       o.carpTitre = Math.max(o.carpTitre, 0.1);
-      o.hasar = Math.min(1, o.hasar + 0.02*H.hasarCarp);
+      o.hasar = Math.min(1, o.hasar + 0.008*H.hasarCarp);
       o.temizSure = 0; o.kombo = Math.floor((o.kombo||0)/2);
       if(Math.random() < dt*6) Ses.carp(0.45);   // hafif sürtünme
       kivilcim(o, -1);
@@ -1836,21 +1991,48 @@ function guncelle(dt){
     o.sonTrafik -= dt;
     if(o.sonTrafik<=0 && o.mesafe < H.MESAFE-350 && o.trafik.length < maxTrafik){
       o.sonTrafik = (1.3 + Math.random()*1.2) / H.trafikYogunluk;
+      // 4 şerit merkezleri: yeni araç boş bir şeride doğsun
+      const seritler = [-0.6, -0.2, 0.2, 0.6];
+      const dolu = o.trafik.filter(t=>t.z > o.mesafe+300).map(t=>t.hedefX);
+      const bos = seritler.filter(sx => !dolu.some(dx => Math.abs(dx-sx)<0.15));
+      const sx = (bos.length?bos:seritler)[Math.floor(Math.random()*(bos.length?bos.length:4))];
       o.trafik.push({
         z: o.mesafe + 340 + Math.random()*220,
-        x: [-0.62,-0.21,0.21,0.62][Math.floor(Math.random()*4)],
-        hiz: (52+Math.random()*38)/3.6,
-        model: ['sahin','dogan','generic','generic'][Math.floor(Math.random()*4)],
-        renk: ['#8b94a8','#6b7385','#59617a','#7a8296','#4e5568'][Math.floor(Math.random()*5)],
-        gecti:false
+        x: sx, hedefX: sx,
+        hiz: (50+Math.random()*40)/3.6,
+        model: ['sahin','dogan','generic','generic','tayfun'][Math.floor(Math.random()*5)],
+        renk: ['#8b94a8','#6b7385','#59617a','#7a8296','#4e5568','#8a5a4a','#4a5a7a'][Math.floor(Math.random()*7)],
+        gecti:false,
+        seritZaman: 2+Math.random()*4    // ne zaman şerit değiştirmeyi düşünecek
       });
     }
+    const seritMerkez = [-0.6, -0.2, 0.2, 0.6];
     for(const tr of o.trafik){
       tr.z += tr.hiz*dt*1.7;
       const dzm = tr.z - o.mesafe;
+      // --- ŞERİT DEĞİŞTİRME AI ---
+      tr.seritZaman = (tr.seritZaman||3) - dt;
+      if(tr.seritZaman <= 0 && dzm > 30){          // sadece uzaktayken karar ver
+        tr.seritZaman = 3 + Math.random()*5;
+        if(Math.random() < 0.45){
+          // komşu şeride kay (öndeki yavaş aracı sollar gibi)
+          const su = seritMerkez.reduce((a,b)=>Math.abs(b-tr.x)<Math.abs(a-tr.x)?b:a);
+          const idx = seritMerkez.indexOf(su);
+          const yon = (idx===0)?1 : (idx===3)?-1 : (Math.random()<0.5?-1:1);
+          const yeni = seritMerkez[idx+yon];
+          // hedef şerit boşsa geç
+          if(!o.trafik.some(t=>t!==tr && Math.abs(t.z-tr.z)<40 && Math.abs(t.hedefX-yeni)<0.15)){
+            tr.hedefX = yeni;
+          }
+        }
+      }
+      // hedef şeride yumuşak kayma
+      if(tr.hedefX !== undefined && Math.abs(tr.x - tr.hedefX) > 0.01){
+        tr.x += Math.sign(tr.hedefX - tr.x) * Math.min(Math.abs(tr.hedefX-tr.x), dt*0.5);
+      }
       if(dzm > -4 && dzm < 9 && Math.abs(tr.x - o.px) < 0.34){
         o.hiz *= 0.38; o.carpTitre = 0.45;
-        o.hasar = Math.min(1, o.hasar + 0.09*H.hasarCarp);
+        o.hasar = Math.min(1, o.hasar + 0.05*H.hasarCarp);
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
         tr.z += 26; tr.gecti = true;
         Ses.carp(1.25);
@@ -2069,6 +2251,12 @@ async function yarisBitti(){
   profil.stat.enHiz = Math.max(profil.stat.enHiz, Math.round(o.enHiz||0));
   profil.stat.kazanc += odul;
   const yeniBasarim = basarimKontrol();
+  // ---- LİG PUANI ----
+  const eskiLig = ligBul(profil.ligPuan);
+  const ligKazanç = ligPuanKazan(siralama, 1+o.hayaletler.length, H.zorluk);
+  profil.ligPuan += ligKazanç;
+  const yeniLig = ligBul(profil.ligPuan);
+  const ligAtladi = yeniLig > eskiLig;
   const rekor = await skorGonder(sure);
   await profilKaydet();
   const Z = ZORLUKLAR[H.zorluk] || ZORLUKLAR.orta;
@@ -2081,6 +2269,8 @@ async function yarisBitti(){
   if(yakinBonus>0) dokum += `<div style="display:flex;justify-content:space-between;color:#2ee6c8;"><span>😱 Kıl payı ×${o.yakinGecis}</span><span>+₺${Math.round(yakinBonus*H.odulCarp).toLocaleString('tr-TR')}</span></div>`;
   if(hasarCeza>0) dokum += `<div style="display:flex;justify-content:space-between;color:#ff4d5e;"><span>🔧 Hasar %${Math.round(o.hasar*100)}</span><span>−₺${Math.round(hasarCeza*H.odulCarp).toLocaleString('tr-TR')}</span></div>`;
   for(const b of yeniBasarim) dokum += `<div style="display:flex;justify-content:space-between;color:#c9b6ff;font-weight:800;"><span>🏅 ${b.ikon} ${b.ad}</span><span>+₺${b.odul.toLocaleString('tr-TR')}</span></div>`;
+  dokum += `<div style="display:flex;justify-content:space-between;color:${LIGLER[yeniLig].renk};"><span>${LIGLER[yeniLig].ikon} Lig puanı</span><span>+${ligKazanç} 🏆</span></div>`;
+  if(ligAtladi) dokum += `<div style="text-align:center;color:${LIGLER[yeniLig].renk};font-weight:900;margin-top:4px;">⬆️ ${LIGLER[yeniLig].ad} LİGİNE YÜKSELDİN!</div>`;
   $('bitisDetay').innerHTML =
     `<span style="color:${Z.renk};font-size:13px;font-weight:800;">${Z.ad} · ${siralama}/${toplam}</span><br>` +
     `Süre: <b style="color:var(--teal)">${sureYaz(sure)}</b>` +
@@ -2308,7 +2498,7 @@ function ciz(){
   ctx.translate(_shX, _shY);
   const ufuk = Y*0.34, zN = 2.2;
   const yP = z => ufuk + (Y-ufuk)*(zN/z);
-  const wP = z => G*0.66*(zN/z);
+  const wP = z => G*0.82*(zN/z);
   const zb = zonBlend(o.mesafe);
   const gorusEfektif = Math.max(35, Math.round(GORUS * H.gorusCarpan));
 
@@ -2423,26 +2613,26 @@ function ciz(){
     const asf = s.zon===2 ? ['#1d2029','#1a1d25'] : ['#262a33','#22262e'];
     ctx.fillStyle = renkKaris(asf[p], SKY, s.fog);
     dortgen(s.x1-s.w1, s.y1, s.x1+s.w1, s.x2-s.w2, s.y2, s.x2+s.w2);
-    // kırmızı-beyaz bordürler
-    ctx.fillStyle = renkKaris(p ? '#c8102e' : '#e8edf4', SKY, s.fog);
-    dortgen(s.x1-s.w1*1.09, s.y1, s.x1-s.w1, s.x2-s.w2*1.09, s.y2, s.x2-s.w2);
-    dortgen(s.x1+s.w1, s.y1, s.x1+s.w1*1.09, s.x2+s.w2, s.y2, s.x2+s.w2*1.09);
-    // şerit çizgileri
-    if(p===0){
-      ctx.fillStyle = renkKaris('#c9d3e2', SKY, s.fog);
-      ctx.globalAlpha = 0.7;
+    // kenar şeritleri (düz beyaz — normal yol çizgisi)
+    ctx.fillStyle = renkKaris('#d6dde8', SKY, s.fog);
+    dortgen(s.x1-s.w1*1.05, s.y1, s.x1-s.w1*0.97, s.x2-s.w2*1.05, s.y2, s.x2-s.w2*0.97);
+    dortgen(s.x1+s.w1*0.97, s.y1, s.x1+s.w1*1.05, s.x2+s.w2*0.97, s.y2, s.x2+s.w2*1.05);
+    // şerit ayırıcıları: 3 çizgi (4 şerit), BEYAZ KESİKLİ (segmentte bir çiz)
+    if(p===0 && (s.idx % 3 < 2)){    // kesikli desen
+      ctx.fillStyle = renkKaris('#eef2f8', SKY, s.fog);
+      ctx.globalAlpha = 0.85;
       for(const L of [-0.5, 0, 0.5])
-        dortgen(s.x1+s.w1*(L-0.011), s.y1, s.x1+s.w1*(L+0.011),
-                s.x2+s.w2*(L-0.011), s.y2, s.x2+s.w2*(L+0.011));
+        dortgen(s.x1+s.w1*(L-0.012), s.y1, s.x1+s.w1*(L+0.012),
+                s.x2+s.w2*(L-0.012), s.y2, s.x2+s.w2*(L+0.012));
       ctx.globalAlpha = 1;
     }
-    // başlangıç / bitiş damalı zemin
-    if(s.idx <= 1 || (s.idx >= H.TOPLAM_SEG-2 && s.idx < H.TOPLAM_SEG)){
-      for(let q=0;q<12;q++){
-        ctx.fillStyle = (q+s.idx)%2 ? '#e8e8e8' : '#161616';
+    // başlangıç / bitiş damalı çizgi (tek net bant)
+    if(s.idx === 2 || s.idx === H.TOPLAM_SEG-2){
+      for(let q=0;q<14;q++){
+        ctx.fillStyle = (q%2) ? '#f4f4f4' : '#14161a';
         ctx.globalAlpha = 1 - s.fog;
-        const xa = s.x1-s.w1 + (2*s.w1)*q/12;
-        ctx.fillRect(xa, s.y2, (2*s.w1)/12 + 0.5, hB);
+        const xa = s.x1-s.w1 + (2*s.w1)*q/14;
+        ctx.fillRect(xa, s.y2, (2*s.w1)/14 + 0.5, Math.max(hB, (s.y1-s.y2)));
       }
       ctx.globalAlpha = 1;
     }
@@ -2489,19 +2679,21 @@ function ciz(){
     if(wcar < 4) continue;
     if(a.hayalet){
       ctx.globalAlpha = 0.55;
-      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model});
+      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model, gece:window._gece});
       ctx.globalAlpha = 1;
       if(wcar > 26){
         ctx.fillStyle = a.renk; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(a.isim, xc + w*a.x, y - wcar*0.75);
       }
     } else {
-      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model});
+      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model, gece:window._gece});
     }
   }
 
   // ---- 5) üst yapılar (tabelalar, köprü pilonları, bitiş kapısı) ----
   for(const u of ustYapi) ustCiz(u, o, G);
+  // gece/tünel/sisli koşul: stop lambaları ve farlar için
+  window._gece = (H.tema==='sehir') || (H.tema==='dag') || (zb.a>=2) || (H.hava==='yagmur');
 
   // ---- 6) oyuncu arabası ----
   // Trafikle AYNI oran: bir şerit = yolW/4, araba = şerit*0.78 (modele göre çarpan)
@@ -2535,7 +2727,8 @@ function ciz(){
     oyuncu: true,
     nitro: o.nitroAktif,
     fren: o.carpTitre > 0,
-    hasar: o.hasar
+    hasar: o.hasar,
+    gece: window._gece
   });
   ctx.restore();
   ctx.restore();
@@ -2750,24 +2943,7 @@ function ciz(){
     ctx.fillStyle = tg; ctx.fillRect(0,0,G,Y);
   }
 
-  // ---- DİREKSİYON GÖSTERGESİ (sol alt) ----
-  const dX = 52, dY = Y - 54, dR = 30;
-  ctx.save();
-  ctx.translate(dX, dY);
-  ctx.globalAlpha = 0.9;
-  ctx.rotate(o.lean * 0.6);
-  ctx.strokeStyle = '#2a3142'; ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.arc(0,0,dR,0,T2); ctx.stroke();
-  ctx.strokeStyle = '#5b6270'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(0,0,dR,0,T2); ctx.stroke();
-  ctx.strokeStyle = '#e8ecf4'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(-dR,0); ctx.lineTo(dR,0);
-  ctx.moveTo(0,0); ctx.lineTo(0,dR); ctx.stroke();
-  ctx.fillStyle = '#ffb02e';
-  ctx.beginPath(); ctx.arc(0,-dR,4,0,T2); ctx.fill();
-  ctx.fillStyle = '#1e2430';
-  ctx.beginPath(); ctx.arc(0,0,7,0,T2); ctx.fill();
-  ctx.restore();
+  // ---- (direksiyon göstergesi kaldırıldı — sade HUD) ----
 
   // ========== EFEKT KATMANLARI ==========
   // 1) FAR IŞIĞI — yol yüzeyine düşen, öne doğru daralan ışık havuzu
@@ -2893,7 +3069,15 @@ function ciz(){
   const hasarYazi = o.hasar > 0.03 ? `<br><span style="color:${o.hasar>0.6?'#ff4d5e':'#ff8a3a'};font-size:11px;">🔧 HASAR ${Math.round(o.hasar*100)}%</span>` : '';
   $('hudSol').innerHTML = `<span style="color:${siraRenk};font-size:15px;">SIRA ${o.sira}/${toplamYarisci}</span><br>⏱ ${sureYaz(o.sure)}<br><span style="color:var(--muted);font-size:12px;">${Math.round(o.mesafe)} / ${H.MESAFE} m</span>${hasarYazi}`;
   $('hudSag').innerHTML = `<span style="font-size:22px;color:var(--amber);">${Math.round(o.hiz*3.6)}</span> <span style="font-size:11px;">km/s</span><br>
-    <span style="color:var(--teal);font-size:12px;">NİTRO ${Math.round(o.nitroDolu)}%</span>`;
+    <span style="color:${o.nosAktif?'#7dffe8':'var(--teal)'};font-size:12px;">${o.nosAktif?'🔥 NOS!':'NOS '+Math.round(o.nitroDolu)+'%'}</span>`;
+  // NOS butonu görsel durumu
+  const nosBtn = $('btnNitro'), nosBar = $('nosBar');
+  if(nosBar) nosBar.style.width = Math.round(o.nitroDolu) + '%';
+  if(nosBtn){
+    const hazir = o.nitroDolu >= 25 && !o.nosAktif;
+    nosBtn.classList.toggle('hazir', hazir);
+    nosBtn.classList.toggle('bos', o.nitroDolu < 25 && !o.nosAktif);
+  }
 }
 
 // bölgelere göre yol kenarı sahneleri
@@ -2906,21 +3090,43 @@ function sahneSehir(s, p, G, o){
   const {zon, idx, x2, y2, w2, fog} = s;
   const F = 1 - fog;
   if(zon===0 || zon===3){
-    if(idx%6===2){
-      const side = (idx%12===2) ? -1 : 1;
-      const bw = w2*(0.8 + srand(idx*3)*0.9), bh = w2*(2.1 + srand(idx*5)*2.8);
-      const bx = x2 + w2*side*(1.95 + srand(idx*7)*1.1);
-      ctx.fillStyle = renkKaris(['#131a28','#0f1522','#182134'][idx%3], SKY, fog);
-      ctx.fillRect(bx-bw/2, y2-bh, bw, bh);
-      if(w2 > 13){
-        ctx.fillStyle = `rgba(255,195,100,${(0.75*F).toFixed(2)})`;
-        for(let q=0;q<4;q++)
-          ctx.fillRect(bx-bw/2+2+srand(idx*11+q)*(bw-5), y2-bh+3+srand(idx*13+q)*(bh-8),
-                       Math.max(1.4,bw*0.07), Math.max(1.4,bw*0.07));
-        ctx.strokeStyle = renkKaris('#2a3142', SKY, fog); ctx.lineWidth = Math.max(1,w2*0.02);
-        ctx.beginPath(); ctx.moveTo(bx, y2-bh); ctx.lineTo(bx, y2-bh-w2*0.4); ctx.stroke();
+    // ---- BİNALAR: her iki tarafta, sık gökdelen sırası ----
+    if(idx%3===0 && w2 > 2){
+      for(const side of [-1, 1]){
+        const seed = idx*7 + (side>0?100:0);
+        const bw = w2*(0.7 + srand(seed)*0.7);
+        const bh = w2*(1.6 + srand(seed*5)*3.4);           // çeşitli yükseklik
+        const bx = x2 + w2*side*(1.7 + srand(seed*3)*0.7);
+        const govde = ['#131a28','#0f1522','#182134','#0d1420','#161d2e'][Math.floor(srand(seed*2)*5)];
+        ctx.fillStyle = renkKaris(govde, SKY, fog);
+        ctx.fillRect(bx-bw/2, y2-bh, bw, bh);
+        // çatı vurgusu
+        ctx.fillStyle = renkKaris('#0a0e16', SKY, fog);
+        ctx.fillRect(bx-bw/2, y2-bh, bw, Math.max(1, w2*0.05));
+        if(w2 > 10){
+          // pencere ızgarası (yanan/sönük)
+          const sut = 3, sat = Math.max(2, Math.floor(bh/(w2*0.5)));
+          const pw = Math.max(1.2, bw*0.13), ph = Math.max(1.2, w2*0.12);
+          for(let c=0;c<sut;c++) for(let r=0;r<sat;r++){
+            const yanik = srand(seed*17 + c*7 + r*3) > 0.42;
+            ctx.fillStyle = yanik
+              ? `rgba(255,${190+((c+r)%2)*30},${90+((c*r)%3)*25},${(0.8*F).toFixed(2)})`
+              : `rgba(30,38,54,${(0.6*F).toFixed(2)})`;
+            const wx = bx - bw/2 + bw*0.18 + c*(bw*0.28);
+            const wy = y2 - bh + w2*0.28 + r*(w2*0.42);
+            if(wy < y2 - w2*0.2) ctx.fillRect(wx, wy, pw, ph);
+          }
+          // anten (bazı binalarda)
+          if(srand(seed*23) > 0.6){
+            ctx.strokeStyle = renkKaris('#2a3142', SKY, fog); ctx.lineWidth = Math.max(1, w2*0.025);
+            ctx.beginPath(); ctx.moveTo(bx, y2-bh); ctx.lineTo(bx, y2-bh-w2*0.5); ctx.stroke();
+            ctx.fillStyle = `rgba(255,80,80,${(0.9*F).toFixed(2)})`;
+            ctx.beginPath(); ctx.arc(bx, y2-bh-w2*0.5, Math.max(1, w2*0.04), 0, T2); ctx.fill();
+          }
+        }
       }
     }
+    // ---- SOKAK LAMBALARI ----
     if(idx%9===5){
       const side = (idx%18===5) ? -1 : 1;
       const px2 = x2 + w2*side*1.34, boy = w2*2.0;
@@ -3397,8 +3603,8 @@ function aracArka(cx, cyAlt, w, cfg){
     }
   }
 
-  // ---- STOP LAMBALARI (çok katmanlı gerçekçi parlama) ----
-  const frenParla = cfg.fren ? 1 : 0;
+  // ---- STOP LAMBALARI (gece sürekli yanar, frende daha parlak) ----
+  const frenParla = cfg.fren ? 1 : (cfg.gece ? 0.72 : 0);
   ctx.save();
   ctx.shadowColor = '#ff1030';
   ctx.shadowBlur = w*(0.09 + 0.14*frenParla);
