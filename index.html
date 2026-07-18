@@ -247,6 +247,49 @@
     background:linear-gradient(90deg,transparent,#ffffff55,transparent);
     animation: btnParla 2.6s ease-in-out infinite; }
   @keyframes btnParla { 0%,55%{ left:-60%; } 85%,100%{ left:130%; } }
+  /* ============ AYARLAR ============ */
+  .ayar-btn { width:38px; height:34px; display:flex; align-items:center; justify-content:center;
+    font-size:17px; background:var(--panel2); border:1px solid var(--line);
+    border-radius:10px; cursor:pointer; transition:transform .12s; }
+  .ayar-btn:active { transform:scale(.92); }
+  .ayar-kutu { width:min(92vw,380px); max-height:82vh; overflow-y:auto;
+    background:linear-gradient(170deg,#1c222f,#141924); border:1px solid #ffffff18;
+    border-radius:20px; padding:18px; box-shadow:0 22px 54px #000a; }
+  .ayar-baslik { display:flex; justify-content:space-between; align-items:center;
+    font-size:17px; font-weight:900; letter-spacing:1px; margin-bottom:14px; }
+  .ayar-kapat { width:32px; height:32px; border:none; border-radius:9px; cursor:pointer;
+    background:#ffffff10; color:var(--muted); font-size:14px; }
+  .ayar-grup { background:#0e131d; border:1px solid #232b3a; border-radius:14px;
+    padding:12px 14px; margin-bottom:12px; }
+  .ayar-satir { display:flex; justify-content:space-between; align-items:center;
+    gap:12px; padding:6px 0; }
+  .ayar-ad { font-size:14.5px; font-weight:800; }
+  .ayar-not { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  /* iOS tarzı anahtar */
+  .anahtar { position:relative; flex-shrink:0; }
+  .anahtar input { position:absolute; opacity:0; pointer-events:none; }
+  .anahtar span { display:block; width:50px; height:29px; border-radius:999px;
+    background:#2a3142; transition:background .2s; cursor:pointer; }
+  .anahtar span::after { content:''; position:absolute; top:3.5px; left:4px;
+    width:22px; height:22px; border-radius:50%; background:#8b94a8;
+    transition:transform .2s, background .2s; }
+  .anahtar input:checked + span { background:linear-gradient(135deg,#ffd47a,var(--amber)); }
+  .anahtar input:checked + span::after { transform:translateX(20px); background:#fff; }
+  /* slider */
+  .ayar-slider { -webkit-appearance:none; appearance:none; width:150px; height:6px;
+    border-radius:999px; background:#2a3142; outline:none; }
+  .ayar-slider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px;
+    border-radius:50%; background:var(--amber); cursor:pointer;
+    box-shadow:0 2px 8px #0007; }
+  .ayar-slider::-moz-range-thumb { width:20px; height:20px; border:none;
+    border-radius:50%; background:var(--amber); cursor:pointer; }
+  /* seçenek butonları */
+  .ayar-secenek { display:flex; gap:5px; }
+  .ayar-secenek button { padding:7px 13px; font-size:12.5px; font-weight:700;
+    border:1px solid var(--line); border-radius:9px; background:#161c28;
+    color:var(--muted); cursor:pointer; }
+  .ayar-secenek button.aktif { background:linear-gradient(135deg,#ffd47a,var(--amber));
+    color:#181000; border-color:transparent; }
 </style>
 </head>
 <body>
@@ -291,7 +334,10 @@
 <div class="ekran" id="garajEkrani">
   <div class="baslik-bar">
     <div class="logo">TURBO <span>YARIŞ</span></div>
-    <div class="para-rozet" id="paraGosterge">₺ 0</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="para-rozet" id="paraGosterge">₺ 0</div>
+      <button class="ayar-btn" onclick="ayarlarAc()" aria-label="Ayarlar">⚙️</button>
+    </div>
   </div>
   <div class="sekmeler">
     <div class="sekme aktif" id="skGaraj" onclick="sekmeAc('garaj')">Garaj</div>
@@ -339,6 +385,61 @@
   </div>
 </div>
 
+
+<!-- AYARLAR MODALI -->
+<div class="kaplama" id="ayarKaplama">
+  <div class="ayar-kutu">
+    <div class="ayar-baslik">
+      <span>⚙️ AYARLAR</span>
+      <button class="ayar-kapat" onclick="ayarlarKapat()">✕</button>
+    </div>
+
+    <div class="ayar-grup">
+      <div class="ayar-satir">
+        <div>
+          <div class="ayar-ad">🔊 Ses</div>
+          <div class="ayar-not">Motor, efekt ve bildirimler</div>
+        </div>
+        <label class="anahtar"><input type="checkbox" id="aySes" onchange="aySesDegis()"><span></span></label>
+      </div>
+      <div class="ayar-satir" id="aySesSeviyeSatir">
+        <div class="ayar-ad" style="font-weight:600;color:var(--muted);">Ses seviyesi</div>
+        <input type="range" id="aySesSeviye" min="10" max="100" step="5" oninput="aySeviyeDegis()" class="ayar-slider">
+      </div>
+    </div>
+
+    <div class="ayar-grup">
+      <div class="ayar-satir">
+        <div>
+          <div class="ayar-ad">📱 Eğim kontrolü</div>
+          <div class="ayar-not">Telefonu sağa-sola yatırarak direksiyon</div>
+        </div>
+        <label class="anahtar"><input type="checkbox" id="ayEgim" onchange="ayEgimDegis()"><span></span></label>
+      </div>
+      <div class="ayar-satir" id="ayHassasSatir">
+        <div class="ayar-ad" style="font-weight:600;color:var(--muted);">Hassasiyet</div>
+        <div class="ayar-secenek" id="ayHassas">
+          <button data-v="0.6" onclick="ayHassasSec(0.6)">Az</button>
+          <button data-v="1" onclick="ayHassasSec(1)">Orta</button>
+          <button data-v="1.5" onclick="ayHassasSec(1.5)">Çok</button>
+        </div>
+      </div>
+      <div class="ayar-not" id="ayEgimDurum" style="padding:0 2px;"></div>
+    </div>
+
+    <div class="ayar-grup">
+      <div class="ayar-satir">
+        <div>
+          <div class="ayar-ad">📳 Titreşim</div>
+          <div class="ayar-not">Çarpışmalarda titreşim</div>
+        </div>
+        <label class="anahtar"><input type="checkbox" id="ayTitresim" onchange="ayTitresimDegis()"><span></span></label>
+      </div>
+    </div>
+
+    <button class="btn btn-ana" style="width:100%;margin-top:4px;" onclick="ayarlarKapat()">Tamam</button>
+  </div>
+</div>
 <script>
 // ============ VERİLER ============
 const ARABALAR = [
@@ -419,6 +520,30 @@ let H = null; // aktif harita çözümlenmiş hali (yarisBaslat içinde kurulur)
 
 // ============ PROFİL / DEPOLAMA ============
 let profil = null;
+
+// ============ AYARLAR ============
+let ayarlar = {
+  ses: true,          // ses açık/kapalı
+  sesSeviye: 0.5,     // 0..1
+  egim: false,        // telefonu eğerek direksiyon
+  egimHassas: 1.0,    // 0.6 / 1.0 / 1.5
+  titresim: true      // çarpışmada titreşim
+};
+async function ayarlarKaydet(){
+  try{ await window.storage.set('ayarlar', JSON.stringify(ayarlar)); }catch(e){}
+}
+async function ayarlarYukle(){
+  try{
+    const k = await window.storage.get('ayarlar');
+    if(k && k.value) Object.assign(ayarlar, JSON.parse(k.value));
+  }catch(e){}
+  sesUygula();
+}
+function sesUygula(){
+  if(Ses.acik && Ses.master){
+    Ses.master.gain.value = ayarlar.ses ? ayarlar.sesSeviye : 0;
+  }
+}
 let hafizaModu = false;
 const varsayilanProfil = () => ({
   isim:'', para:2000,
@@ -872,7 +997,7 @@ if(!ctx.roundRect){
 }
 const SEG = 5, GORUS = 95;
 let oyun = null, sonZaman = 0, animId = 0;
-let girdi = { sol:false, sag:false, nitro:false };
+let girdi = { sol:false, sag:false, nitro:false, egim:0 };
 
 // ============ SES (Web Audio, dosyasız — yumuşatılmış) ============
 const Ses = {
@@ -898,7 +1023,8 @@ const Ses = {
     try{
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ac = new AC();
-      this.master = this.ac.createGain(); this.master.gain.value = 0.5;
+      this.master = this.ac.createGain();
+      this.master.gain.value = (typeof ayarlar!=='undefined' && !ayarlar.ses) ? 0 : (typeof ayarlar!=='undefined' ? ayarlar.sesSeviye : 0.5);
       // hafif kompresör: sesler birbirini ezmesin, dolgun dursun
       const comp = this.ac.createDynamicsCompressor();
       comp.threshold.value = -18; comp.knee.value = 22; comp.ratio.value = 4;
@@ -1218,6 +1344,7 @@ async function yarisBaslat(haritaId){
     hasarCarp:Z.hasarCarp, odulCarp:Z.odulCarp, zorluk:secilenZorluk
   };
   ekranAc('yarisEkrani');
+  if(ayarlar.egim) egimBaslat();
   $('bitisKaplama').classList.remove('goster');
   // bitiş ekranı butonlarını varsayılana döndür (turnuva bunları değiştiriyor)
   if(!turnuva || !turnuva.aktif){
@@ -1286,7 +1413,7 @@ async function yarisBaslat(haritaId){
       });
     }
   }
-  girdi = {sol:false, sag:false, nitro:false};
+  girdi = {sol:false, sag:false, nitro:false, egim:girdi.egim||0};
   Ses.baslat(); Ses.devam();
   let s = 3;
   $('geriSayim').classList.add('goster');
@@ -1334,7 +1461,9 @@ function guncelle(dt){
     if(o.nitroAktif) o.nitroDolu = Math.max(0, o.nitroDolu - dt*(38 - o.st.nitro*0.18));
     o.mesafe += o.hiz*dt*1.7;
     // direksiyon
-    const yon = (girdi.sag?1:0) - (girdi.sol?1:0);
+    let yon = (girdi.sag?1:0) - (girdi.sol?1:0);
+    // eğim kontrolü: butona basılmıyorsa telefonun eğimi direksiyon olur (analog)
+    if(yon===0 && ayarlar.egim && Math.abs(girdi.egim||0) > 0.09) yon = girdi.egim;
     o.lean += (yon - o.lean)*Math.min(1, dt*7);
     const donus = 0.85 + tutusEfektif/130;
     o.px += yon * donus * dt * Math.min(1, o.hiz/14) * 1.35;
@@ -1384,6 +1513,7 @@ function guncelle(dt){
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
         tr.z += 26; tr.gecti = true;
         Ses.carp(1.25);
+        titret([50,40,80]);
         dumanPatla(o);
         if(navigator.vibrate) navigator.vibrate(80);
       }
@@ -3024,6 +3154,7 @@ addEventListener('keyup', e=>{
   if(e.key===' '||e.key==='Shift') girdi.nitro=false;
 });
 $('isimGiris').addEventListener('keydown', e=>{ if(e.key==='Enter') isimKaydet(); });
+ayarlarYukle();
 // giriş ekranı: süzülen kırmızı Şahin
 try{ $('girisAraba').innerHTML = arabaSVG('sahin', '#e63946', 250, 0); }catch(e){}
 
@@ -3036,6 +3167,106 @@ try{ $('girisAraba').innerHTML = arabaSVG('sahin', '#e63946', 250, 0); }catch(e)
     ekranAc('isimEkrani');
   }
 })();
+
+// ============ AYARLAR PANELİ ============
+function ayarlarAc(){
+  $('aySes').checked = ayarlar.ses;
+  $('aySesSeviye').value = Math.round(ayarlar.sesSeviye*100);
+  $('ayEgim').checked = ayarlar.egim;
+  $('ayTitresim').checked = ayarlar.titresim;
+  hassasIsaretle();
+  egimDurumYaz();
+  $('aySesSeviyeSatir').style.opacity = ayarlar.ses ? 1 : 0.4;
+  $('ayHassasSatir').style.opacity = ayarlar.egim ? 1 : 0.4;
+  $('ayarKaplama').classList.add('goster');
+}
+function ayarlarKapat(){
+  $('ayarKaplama').classList.remove('goster');
+  ayarlarKaydet();
+}
+function aySesDegis(){
+  ayarlar.ses = $('aySes').checked;
+  $('aySesSeviyeSatir').style.opacity = ayarlar.ses ? 1 : 0.4;
+  sesUygula();
+  if(ayarlar.ses){ Ses.baslat(); Ses.devam(); Ses.bip(false); }
+}
+function aySeviyeDegis(){
+  ayarlar.sesSeviye = $('aySesSeviye').value/100;
+  if(!ayarlar.ses){ ayarlar.ses = true; $('aySes').checked = true; $('aySesSeviyeSatir').style.opacity = 1; }
+  sesUygula();
+}
+function ayTitresimDegis(){
+  ayarlar.titresim = $('ayTitresim').checked;
+  if(ayarlar.titresim) titret(30);
+}
+function hassasIsaretle(){
+  document.querySelectorAll('#ayHassas button').forEach(b=>{
+    b.classList.toggle('aktif', Math.abs(parseFloat(b.dataset.v) - ayarlar.egimHassas) < 0.01);
+  });
+}
+function ayHassasSec(v){ ayarlar.egimHassas = v; hassasIsaretle(); }
+
+// ============ EĞİM KONTROLÜ (telefonu yatırarak direksiyon) ============
+let egimDinliyor = false;
+function egimDurumYaz(){
+  const el = $('ayEgimDurum');
+  if(!el) return;
+  if(!ayarlar.egim){ el.textContent = ''; return; }
+  if(typeof DeviceOrientationEvent === 'undefined'){
+    el.textContent = '⚠️ Bu cihazda eğim sensörü desteklenmiyor.';
+  } else if(egimDinliyor){
+    el.textContent = '✅ Aktif — telefonu sağa-sola yatırarak dene.';
+  } else {
+    el.textContent = 'ℹ️ Yarış başlayınca etkinleşir.';
+  }
+}
+function egimIsle(e){
+  // gamma: telefonun sağa-sola eğimi (dikey tutuşta). -90..90 derece
+  // yatay (landscape) tutuşta beta devreye girer; yön tespiti ekran oranıyla (güvenilir)
+  let deger;
+  const yatay = window.innerWidth > window.innerHeight;
+  if(yatay){
+    const aci = (screen.orientation && screen.orientation.angle) || Math.abs(window.orientation||90);
+    deger = (e.beta||0) * (aci===270 || window.orientation===-90 ? -1 : 1);
+  } else {
+    deger = e.gamma||0;
+  }
+  // ~18 derece eğim = tam direksiyon; hassasiyet çarpanı uygulanır
+  girdi.egim = Math.max(-1, Math.min(1, (deger/18) * ayarlar.egimHassas));
+}
+async function egimBaslat(){
+  if(egimDinliyor || !ayarlar.egim) return;
+  try{
+    // iOS 13+ izin ister — kullanıcı dokunuşu gerektirir
+    if(typeof DeviceOrientationEvent !== 'undefined' &&
+       typeof DeviceOrientationEvent.requestPermission === 'function'){
+      const izin = await DeviceOrientationEvent.requestPermission();
+      if(izin !== 'granted'){ egimDurumYaz(); return; }
+    }
+    window.addEventListener('deviceorientation', egimIsle);
+    egimDinliyor = true;
+    egimDurumYaz();
+  }catch(e){ egimDurumYaz(); }
+}
+function ayEgimDegis(){
+  ayarlar.egim = $('ayEgim').checked;
+  $('ayHassasSatir').style.opacity = ayarlar.egim ? 1 : 0.4;
+  if(ayarlar.egim){
+    egimBaslat();          // kullanıcı dokunuşu içinde: iOS izni burada istenebilir
+  } else {
+    window.removeEventListener('deviceorientation', egimIsle);
+    egimDinliyor = false;
+    girdi.egim = 0;
+  }
+  egimDurumYaz();
+}
+
+// ============ TİTREŞİM ============
+function titret(sure){
+  if(ayarlar.titresim && navigator.vibrate){
+    try{ navigator.vibrate(sure); }catch(e){}
+  }
+}
 </script>
 </body>
 </html>
