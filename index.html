@@ -1943,17 +1943,31 @@ function guncelle(dt){
     // NOS dışında nitro yavaşça dolar (temiz sürüş/sollama da ekler)
     if(!o.nosAktif) o.nitroDolu = Math.min(100, o.nitroDolu + dt*(6 + o.st.nitro*0.10));
 
-    // ---- KADEMELİ HIZLANMA (vites hissi) ----
-    // Hedef maks hız; oyuncu ona ANINDA değil, ivmeyle yaklaşır. Yüksek hızda ivme azalır (gerçekçi).
+    // ---- KADEMELİ HIZLANMA — otomatik vites simülasyonu (Traffic Racer tarzı) ----
+    // Hız aralığı sanal viteslere bölünür. Her viste ivme başta güçlü, vites sonuna
+    // doğru zayıflar; vites geçişinde kısa bir "nefes" olur → sonra yeni vites çeker.
+    // Vites numarası GÖSTERİLMEZ, sadece hissedilir.
     const maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
-    const oran = o.hiz / Math.max(1, maksMs);              // 0..1 mevcut/maks
-    // ivme eğrisi: düşük hızda güçlü, tavana yaklaşınca zayıf (vites geçişi hissi)
-    const ivmeTaban = o.st.ivme/3.6 * hasarCarpan;
-    const ivmeAnlik = ivmeTaban * (1 - oran*0.82) * (o.nosAktif?2.0:1);
+    const oran = Math.min(1, o.hiz / Math.max(1, maksMs));   // 0..1 mevcut/maks
+    // 6 sanal vites: düşük viteslerde hızlı tırmanış, yüksek viteslerde uzun çekiş
+    const VITES = 6;
+    const vitesF = oran * VITES;                    // 0..6 arası kesirli vites konumu
+    const vitesIc = vitesF - Math.floor(vitesF);    // vites içi ilerleme 0..1
+    // ivme çarpanı: vites başında güçlü (~1.0), vites sonuna doğru düşer (~0.45),
+    // tam geçiş noktasında kısa dip (shift torku kesilir)
+    const vitesEgri = 0.45 + 0.55 * (1 - vitesIc);           // vites içi tork eğrisi
+    const geciyor = vitesIc > 0.92 || vitesIc < 0.06;        // geçiş anı
+    const shiftDip = geciyor ? 0.35 : 1;                     // geçişte tork kesintisi
+    // yüksek viteslerde temel ivme azalır → yüksek hızlar belirgin şekilde daha uzun sürer
+    const vitesZorluk = 1 - Math.floor(vitesF) * 0.115;      // her üst viteste güç azalır
+    // yükseltme sistemi korunur ama kademeli hissedilir: ivme statının etkisi karekökle yumuşatılır
+    const ivmeStat = Math.sqrt(o.st.ivme / 38) * 38;         // ~38 taban; yükseltmeler yumuşak eğri
+    const ivmeTaban = ivmeStat/3.6 * hasarCarpan;
+    const ivmeAnlik = ivmeTaban * vitesEgri * vitesZorluk * shiftDip * (o.nosAktif?2.0:1);
     if(o.hiz < maksMs){
-      o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*0.85);
+      o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*0.9);
     } else {
-      o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);   // maks düşünce yumuşak in
+      o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);    // maks düşünce yumuşak in
     }
     o.mesafe += o.hiz*dt*1.7;
     // direksiyon
