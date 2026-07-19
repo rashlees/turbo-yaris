@@ -650,9 +650,9 @@ function turnuvaIptal(){
   garajaDon();
 }
 const ZORLUKLAR = {
-  kolay: { ad:'KOLAY', renk:'#7bd94a', botHiz:1.15, trafik:0.7,  hasarCarp:0.5, odulCarp:0.7,  pxGevsek:0.16 },
+  kolay: { ad:'KOLAY', renk:'#7bd94a', botHiz:1.15, trafik:0.55, hasarCarp:0.5, odulCarp:0.7,  pxGevsek:0.16 },
   orta:  { ad:'ORTA',  renk:'#ffb02e', botHiz:0.98, trafik:1.0,  hasarCarp:1.0, odulCarp:1.0,  pxGevsek:0.0  },
-  zor:   { ad:'ZOR',   renk:'#ff4d5e', botHiz:0.86, trafik:1.4,  hasarCarp:1.7, odulCarp:1.8,  pxGevsek:-0.08 }
+  zor:   { ad:'ZOR',   renk:'#ff4d5e', botHiz:0.86, trafik:1.6,  hasarCarp:1.7, odulCarp:1.8,  pxGevsek:-0.08 }
 };
 let H = null; // aktif harita çözümlenmiş hali (yarisBaslat içinde kurulur)
 
@@ -1903,10 +1903,10 @@ async function yarisBaslat(haritaId){
   }
   // BAŞLANGIÇ TRAFİĞİ: yolda hazır araçlar (oyuncu hemen sollamaya başlasın)
   {
-    const n = H.trafikYogunluk > 1.3 ? 5 : 4;
+    const n = Math.round(2 + H.trafikYogunluk * 2.2);   // kolay ~3, orta ~4, zor ~6
     for(let i=0;i<n;i++){
       const sx = TRAFIK_SERIT[i % 4];
-      oyun.trafik.push(trafikArac(90 + i*95 + Math.random()*45, sx));
+      oyun.trafik.push(trafikArac(120 + i*90 + Math.random()*40, sx));
     }
   }
   girdi = {sol:false, sag:false, nitro:false, egim:girdi.egim||0};
@@ -2027,7 +2027,8 @@ function guncelle(dt){
       kivilcim(o, -1);
     }
     // trafik üret (harita zorluğuna göre yoğunluk/sayı)
-    const maxTrafik = H.trafikYogunluk > 1.3 ? 8 : H.trafikYogunluk > 1.05 ? 7 : 6;
+    // maks eşzamanlı araç sayısı yoğunluğa göre: kolay ~4-5, orta ~7, zor ~10
+    const maxTrafik = Math.round(4 + H.trafikYogunluk * 3.5);
     o.sonTrafik -= dt;
     if(o.sonTrafik<=0 && o.mesafe < H.MESAFE-350 && o.trafik.length < maxTrafik){
       o.sonTrafik = (1.3 + Math.random()*1.2) / H.trafikYogunluk;
@@ -2094,25 +2095,27 @@ function guncelle(dt){
       if(tr.hedefX !== undefined && Math.abs(tr.x - tr.hedefX) > 0.01){
         tr.x += Math.sign(tr.hedefX - tr.x) * Math.min(Math.abs(tr.hedefX-tr.x), dt*0.55);
       }
-      // gerçek temas: araç neredeyse aynı noktada (dar bant) VE aynı şeritte
-      if(dzm > -2.5 && dzm < 3.2 && Math.abs(tr.x - o.px) < 0.30){
+      // çarpışma bekleme süresini azalt (her araç kendi cooldown'ını taşır)
+      if(tr.carpBekle > 0) tr.carpBekle -= dt;
+      // gerçek temas: araç neredeyse aynı noktada VE aynı şeritte VE cooldown bitti
+      if(dzm > -2.5 && dzm < 3.2 && Math.abs(tr.x - o.px) < 0.30 && !(tr.carpBekle > 0)){
         // ÇARPMA ŞİDDETİ: hız farkına oranlı — yavaş araca hafifçe değmek ≠ tam çarpışma
         const hizFark = Math.max(0, o.hiz - tr.hiz);        // yaklaşma hızı (m/s)
         const siddet = Math.min(1, hizFark / (o.st.hiz/3.6*0.5));  // 0..1 normalize
         // hafif dokunuşta az yavaşla (0.80), sert çarpışmada çok (0.36) — gerçekçi
-        const yavaslamaCarpani = 0.80 - 0.44*siddet;
-        o.hiz *= yavaslamaCarpani;
-        // öndeki aracı ileri it (arkadan çarpınca öne savrulur) + onu da yavaşlat
-        tr.z = o.mesafe + 4.5;
-        tr.hiz = Math.max(tr.hiz, o.hiz*0.9);
-        o.carpTitre = Math.max(o.carpTitre, 0.25 + 0.4*siddet);   // şiddete oranlı sarsıntı
+        o.hiz *= (0.80 - 0.44*siddet);
+        // AYIRMA: oyuncuyu aracın hemen ARKASINA yerleştir, aracı biraz İLERİ it
+        // → üst üste binmezler, tekrar tekrar çarpışma (titreme) olmaz
+        o.mesafe = tr.z - 5.0;
+        tr.hiz = Math.max(tr.hiz, o.hiz*0.92);              // öndeki de hızlanıp uzaklaşsın
+        tr.carpBekle = 0.4;                                  // 0.4sn bu araçla tekrar çarpışma yok
+        o.carpTitre = Math.max(o.carpTitre, 0.25 + 0.4*siddet);
         o.hasar = Math.min(1, o.hasar + (0.02 + 0.05*siddet)*H.hasarCarp);
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
         tr.gecti = true;
         Ses.carp(0.7 + 0.65*siddet);
         titret([40 + 40*siddet, 40, 60 + 40*siddet]);
         dumanPatla(o);
-        // çarpışma parçacıkları (cam/metal kıvılcımı)
         carpmaParcacik(o);
         if(navigator.vibrate) navigator.vibrate(90);
       }
@@ -2705,10 +2708,19 @@ function ciz(){
       ctx.fillRect(0, s.y2+hB*0.4, Math.max(0, s.x2 - s.w2*1.3), 1.5);
       ctx.fillRect(s.x2 + s.w2*1.3, s.y2+hB*0.4, G, 1.5);
     }
-    // asfalt
+    // asfalt — gece karanlık bölgelerde daha koyu (aydınlık bölgeler dışında)
     const asf = s.zon===2 ? ['#1d2029','#1a1d25'] : ['#262a33','#22262e'];
     ctx.fillStyle = renkKaris(asf[p], SKY, s.fog);
     dortgen(s.x1-s.w1, s.y1, s.x1+s.w1, s.x2-s.w2, s.y2, s.x2+s.w2);
+    // GECE KARANLIK BÖLGE: aydınlık zonun dışındaki kesitler kararır (atmosfer)
+    if(window._gece){
+      const bFaz = ((s.idx % 40) + 40) % 40;
+      const karanlikMik = bFaz < 14 ? 0 : bFaz < 20 ? (bFaz-14)/6 : 1;  // aydınlıktan karanlığa yumuşak geçiş
+      if(karanlikMik > 0){
+        ctx.fillStyle = `rgba(4,6,12,${(0.42*karanlikMik*(1-s.fog)).toFixed(3)})`;
+        dortgen(s.x1-s.w1, s.y1, s.x1+s.w1, s.x2-s.w2, s.y2, s.x2+s.w2);
+      }
+    }
     // kenar şeritleri (düz beyaz — normal yol çizgisi)
     ctx.fillStyle = renkKaris('#d6dde8', SKY, s.fog);
     dortgen(s.x1-s.w1*1.05, s.y1, s.x1-s.w1*0.97, s.x2-s.w2*1.05, s.y2, s.x2-s.w2*0.97);
@@ -3222,18 +3234,24 @@ function sahneSehir(s, p, G, o){
         }
       }
     }
-    // ---- SOKAK LAMBALARI ----
-    if(idx%9===5){
-      const side = (idx%18===5) ? -1 : 1;
+    // ---- SOKAK LAMBALARI (yalnızca "aydınlık bölgeler"de — arası karanlık kalır) ----
+    // Yol, ~40 segmentlik döngülerde aydınlık/karanlık bölgelere ayrılır.
+    // Aydınlık bölge: 14 segment lambalı; sonraki 26 segment karanlık.
+    const bolgeFaz = ((idx % 40) + 40) % 40;
+    const aydinlikBolge = bolgeFaz < 14;               // sadece bu aralıkta lamba var
+    if(aydinlikBolge && idx%3===1){                     // aydınlık bölgede sık lamba
+      const side = (idx%6===1) ? -1 : 1;
       const px2 = x2 + w2*side*1.34, boy = w2*2.0;
       ctx.strokeStyle = renkKaris('#3a4152', SKY, fog); ctx.lineWidth = Math.max(1, w2*0.035);
       ctx.beginPath();
       ctx.moveTo(px2, y2); ctx.lineTo(px2, y2-boy); ctx.lineTo(px2 - side*w2*0.5, y2-boy);
       ctx.stroke();
-      ctx.fillStyle = `rgba(255,220,140,${(0.9*F).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(px2 - side*w2*0.5, y2-boy, Math.max(1.5, w2*0.07), 0, T2); ctx.fill();
-      ctx.fillStyle = `rgba(255,205,110,${(0.07*F).toFixed(3)})`;
-      ctx.beginPath(); ctx.ellipse(px2 - side*w2*0.55, y2, w2*0.8, w2*0.16, 0, 0, T2); ctx.fill();
+      // lamba başı (parlak)
+      ctx.fillStyle = `rgba(255,225,150,${(0.95*F).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(px2 - side*w2*0.5, y2-boy, Math.max(1.5, w2*0.08), 0, T2); ctx.fill();
+      // yola düşen sıcak ışık havuzu (aydınlık bölgeyi belli eder)
+      ctx.fillStyle = `rgba(255,210,120,${(0.11*F).toFixed(3)})`;
+      ctx.beginPath(); ctx.ellipse(px2 - side*w2*0.55, y2, w2*0.95, w2*0.22, 0, 0, T2); ctx.fill();
     }
     if(zon===3){
       if(idx%4===1){
@@ -3699,11 +3717,12 @@ function aracArka(cx, cyAlt, w, cfg){
     }
   }
 
-  // ---- STOP LAMBALARI (gece sürekli yanar, frende daha parlak) ----
-  const frenParla = cfg.fren ? 1 : (cfg.gece ? 0.72 : 0);
+  // ---- STOP LAMBALARI (gece net görünür, frende daha parlak) ----
+  const frenParla = cfg.fren ? 1 : (cfg.gece ? 0.78 : 0);
   ctx.save();
   ctx.shadowColor = '#ff1030';
-  ctx.shadowBlur = w*(0.09 + 0.14*frenParla);
+  // gece karanlıkta stop lambaları belirgin parlar (görünürlük)
+  ctx.shadowBlur = w*(0.09 + 0.14*frenParla + (cfg.gece ? 0.10 : 0));
   const lampY = -beltH + w*0.04;
   if(m.ledBar){
     const lh = Math.max(1.8, w*0.04);
@@ -3752,14 +3771,37 @@ function aracArka(cx, cyAlt, w, cfg){
     }
   }
 
-  // ---- YAN AYNALAR ----
-  ctx.fillStyle = koyu;
-  ctx.beginPath(); ctx.roundRect(-w*0.565, -beltH - w*0.025, w*0.06, w*0.05, w*0.012); ctx.fill();
-  ctx.beginPath(); ctx.roundRect( w*0.505, -beltH - w*0.025, w*0.06, w*0.05, w*0.012); ctx.fill();
-  ctx.fillStyle = 'rgba(150,190,230,.4)';
-  if(detay){
-    ctx.fillRect(-w*0.558, -beltH-w*0.018, w*0.04, w*0.03);
-    ctx.fillRect( w*0.518, -beltH-w*0.018, w*0.04, w*0.03);
+  // ---- YAN AYNALAR (yeniden tasarım: kol + gövde + yansıtıcı cam) ----
+  for(const yon of [-1, 1]){
+    const mx = yon * w * 0.545;          // ayna merkez x
+    const my = -beltH - w*0.005;         // ayna merkez y (kabin hizası)
+    const aw = w*0.075, ah = w*0.058;    // ayna gövde boyu
+    // bağlantı kolu (gövdeye)
+    ctx.strokeStyle = koyu2; ctx.lineWidth = Math.max(1, w*0.022);
+    ctx.beginPath();
+    ctx.moveTo(yon*w*0.47, -beltH + w*0.02);
+    ctx.lineTo(mx - yon*aw*0.3, my + ah*0.15);
+    ctx.stroke();
+    // ayna gövdesi (araç rengi, hafif 3B)
+    const mg = ctx.createLinearGradient(mx-aw/2, my-ah/2, mx+aw/2, my+ah/2);
+    mg.addColorStop(0, acik); mg.addColorStop(1, koyu2);
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.roundRect(mx-aw/2, my-ah/2, aw, ah, w*0.02); ctx.fill();
+    // yansıtıcı cam yüzeyi (detaylı modda gradyanlı)
+    if(detay){
+      const cam = ctx.createLinearGradient(mx-aw*0.35, my-ah*0.3, mx+aw*0.35, my+ah*0.3);
+      cam.addColorStop(0, 'rgba(180,215,245,.55)');
+      cam.addColorStop(0.5, 'rgba(120,160,200,.35)');
+      cam.addColorStop(1, 'rgba(90,120,160,.5)');
+      ctx.fillStyle = cam;
+      ctx.beginPath(); ctx.roundRect(mx-aw*0.36, my-ah*0.32, aw*0.72, ah*0.64, w*0.012); ctx.fill();
+      // cam parıltısı (küçük beyaz vurgu)
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      ctx.beginPath(); ctx.roundRect(mx-aw*0.30, my-ah*0.26, aw*0.28, ah*0.20, w*0.008); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(150,190,230,.45)';
+      ctx.beginPath(); ctx.roundRect(mx-aw*0.34, my-ah*0.3, aw*0.68, ah*0.6, w*0.01); ctx.fill();
+    }
   }
 
   // ---- SPOYLER / KANAT ----
