@@ -1795,6 +1795,35 @@ function idealTurSuresi(st, harita){
   return harita.mesafe / (ortHizMs * 1.7);
 }
 
+// ============ TRAFİK AI: sürücü profilleri + üretici ============
+const TRAFIK_SERIT = [-0.6, -0.2, 0.2, 0.6];
+// NPC çeşitliliği: kamyon (yavaş, şerit değiştirmez) / normal / aceleci (hızlı, sık sollar)
+function trafikArac(z, sx){
+  const r = Math.random();
+  let tip, hizKmh, seritOlasilik, model, renk;
+  if(r < 0.22){
+    tip='kamyon'; hizKmh = 42 + Math.random()*10; seritOlasilik = 0.05;
+    model = 'generic'; renk = ['#5a6272','#4e5568','#6b6055','#556070'][Math.floor(Math.random()*4)];
+  } else if(r < 0.78){
+    tip='normal'; hizKmh = 58 + Math.random()*22; seritOlasilik = 0.30;
+    model = ['sahin','dogan','generic','generic'][Math.floor(Math.random()*4)];
+    renk = ['#8b94a8','#6b7385','#59617a','#7a8296','#8a5a4a','#4a5a7a'][Math.floor(Math.random()*6)];
+  } else {
+    tip='aceleci'; hizKmh = 78 + Math.random()*24; seritOlasilik = 0.55;
+    model = ['dogan','tayfun','generic'][Math.floor(Math.random()*3)];
+    renk = ['#c23a3a','#3a5ac2','#c2a03a','#2a2e38','#e8edf4'][Math.floor(Math.random()*5)];
+  }
+  if(sx === undefined) sx = TRAFIK_SERIT[Math.floor(Math.random()*4)];
+  return {
+    z, x:sx, hedefX:sx,
+    hiz: hizKmh/3.6, tabanHiz: hizKmh/3.6,
+    tip, seritOlasilik,
+    model, renk, gecti:false,
+    seritZaman: 1.5 + Math.random()*4,
+    fren:0
+  };
+}
+
 async function yarisBaslat(haritaId){
   const harita = HARITALAR.find(h=>h.id===haritaId) || HARITALAR.find(h=>h.id===secilenHarita) || HARITALAR[0];
   secilenHarita = harita.id;
@@ -1875,17 +1904,9 @@ async function yarisBaslat(haritaId){
   // BAŞLANGIÇ TRAFİĞİ: yolda hazır araçlar (oyuncu hemen sollamaya başlasın)
   {
     const n = H.trafikYogunluk > 1.3 ? 5 : 4;
-    const baslaSerit = [-0.6, -0.2, 0.2, 0.6];
     for(let i=0;i<n;i++){
-      const sx = baslaSerit[i % 4];
-      oyun.trafik.push({
-        z: 90 + i*95 + Math.random()*45,
-        x: sx, hedefX: sx,
-        hiz: (50+Math.random()*40)/3.6,
-        model: ['sahin','dogan','generic','generic'][Math.floor(Math.random()*4)],
-        renk: ['#8b94a8','#6b7385','#59617a','#7a8296','#4e5568'][Math.floor(Math.random()*5)],
-        gecti:false, seritZaman: 2+Math.random()*4
-      });
+      const sx = TRAFIK_SERIT[i % 4];
+      oyun.trafik.push(trafikArac(90 + i*95 + Math.random()*45, sx));
     }
   }
   girdi = {sol:false, sag:false, nitro:false, egim:girdi.egim||0};
@@ -2010,53 +2031,86 @@ function guncelle(dt){
     o.sonTrafik -= dt;
     if(o.sonTrafik<=0 && o.mesafe < H.MESAFE-350 && o.trafik.length < maxTrafik){
       o.sonTrafik = (1.3 + Math.random()*1.2) / H.trafikYogunluk;
-      // 4 şerit merkezleri: yeni araç boş bir şeride doğsun
-      const seritler = [-0.6, -0.2, 0.2, 0.6];
-      const dolu = o.trafik.filter(t=>t.z > o.mesafe+300).map(t=>t.hedefX);
-      const bos = seritler.filter(sx => !dolu.some(dx => Math.abs(dx-sx)<0.15));
-      const sx = (bos.length?bos:seritler)[Math.floor(Math.random()*(bos.length?bos.length:4))];
-      o.trafik.push({
-        z: o.mesafe + 340 + Math.random()*220,
-        x: sx, hedefX: sx,
-        hiz: (50+Math.random()*40)/3.6,
-        model: ['sahin','dogan','generic','generic','tayfun'][Math.floor(Math.random()*5)],
-        renk: ['#8b94a8','#6b7385','#59617a','#7a8296','#4e5568','#8a5a4a','#4a5a7a'][Math.floor(Math.random()*7)],
-        gecti:false,
-        seritZaman: 2+Math.random()*4    // ne zaman şerit değiştirmeyi düşünecek
-      });
+      // boş şerit seç: doğum bölgesinde yeterli boşluğu olan şeritleri tercih et
+      const ileri = o.trafik.filter(t=>t.z > o.mesafe+280);
+      const bosSeritler = TRAFIK_SERIT.filter(sx =>
+        !ileri.some(t => Math.abs(t.hedefX - sx) < 0.15 && Math.abs(t.z - (o.mesafe+400)) < 130));
+      const sx = (bosSeritler.length ? bosSeritler : TRAFIK_SERIT)[
+        Math.floor(Math.random() * (bosSeritler.length ? bosSeritler.length : 4))];
+      o.trafik.push(trafikArac(o.mesafe + 360 + Math.random()*200, sx));
     }
-    const seritMerkez = [-0.6, -0.2, 0.2, 0.6];
+    const seritMerkez = TRAFIK_SERIT;
     for(const tr of o.trafik){
+      // --- HIZ AYARI: öndeki aracı algıla, yumuşakça yavaşla (doğal trafik akışı) ---
+      // aynı şeritte hemen öndeki en yakın aracı bul
+      let onMesafe = 999, onHiz = 0;
+      for(const d of o.trafik){
+        if(d === tr) continue;
+        if(Math.abs(d.x - tr.x) < 0.16){          // aynı şerit
+          const fark = d.z - tr.z;
+          if(fark > 0 && fark < onMesafe){ onMesafe = fark; onHiz = d.hiz; }
+        }
+      }
+      // öndeki araca göre hedef hız: yakınsa onun hızına düş, uzaksa kendi tabanına dön
+      if(tr.tabanHiz === undefined) tr.tabanHiz = tr.hiz;   // güvenlik: eski/elle üretilmiş araçlar
+      if(tr.seritOlasilik === undefined) tr.seritOlasilik = 0.3;
+      let hedefHiz = tr.tabanHiz;
+      if(onMesafe < 26){
+        // takip mesafesi: çok yakınsa öndekinin hızına ya da altına in (fren)
+        hedefHiz = Math.min(tr.tabanHiz, onHiz * (onMesafe < 14 ? 0.82 : 1));
+        tr.fren = onMesafe < 18 ? Math.min(1, (18-onMesafe)/10) : 0;
+      } else {
+        tr.fren = Math.max(0, tr.fren - dt*2);
+      }
+      // hıza yumuşak yaklaş (ani fren/gaz yok)
+      tr.hiz += (hedefHiz - tr.hiz) * Math.min(1, dt*2.2);
       tr.z += tr.hiz*dt*1.7;
       const dzm = tr.z - o.mesafe;
-      // --- ŞERİT DEĞİŞTİRME AI ---
+
+      // --- ŞERİT DEĞİŞTİRME AI: öndeki yavaş aracı sollamak için, güvenliyse ---
       tr.seritZaman = (tr.seritZaman||3) - dt;
-      if(tr.seritZaman <= 0 && dzm > 30){          // sadece uzaktayken karar ver
-        tr.seritZaman = 3 + Math.random()*5;
-        if(Math.random() < 0.45){
-          // komşu şeride kay (öndeki yavaş aracı sollar gibi)
-          const su = seritMerkez.reduce((a,b)=>Math.abs(b-tr.x)<Math.abs(a-tr.x)?b:a);
-          const idx = seritMerkez.indexOf(su);
-          const yon = (idx===0)?1 : (idx===3)?-1 : (Math.random()<0.5?-1:1);
+      // öndeki araç yavaşlatıyorsa şerit değiştirme isteği artar (aceleci daha çok ister)
+      const sollamakIster = onMesafe < 30 && onHiz < tr.tabanHiz*0.9;
+      if(tr.seritZaman <= 0 && dzm > 24){
+        tr.seritZaman = 2.5 + Math.random()*4;
+        const denesin = sollamakIster ? tr.seritOlasilik*1.8 : tr.seritOlasilik;
+        if(Math.random() < denesin){
+          const idx = seritMerkez.reduce((bi,b,i)=>Math.abs(b-tr.x)<Math.abs(seritMerkez[bi]-tr.x)?i:bi,0);
+          // tercihen sollama şeridine (sola), kenardaysa içeri
+          let yon;
+          if(idx===0) yon=1; else if(idx===3) yon=-1;
+          else yon = sollamakIster ? -1 : (Math.random()<0.5?-1:1);
           const yeni = seritMerkez[idx+yon];
-          // hedef şerit boşsa geç
-          if(!o.trafik.some(t=>t!==tr && Math.abs(t.z-tr.z)<40 && Math.abs(t.hedefX-yeni)<0.15)){
-            tr.hedefX = yeni;
+          if(yeni !== undefined){
+            // GÜVENLİK: hedef şeritte yakın araç yok VE oyuncunun üstüne merge etmiyor
+            const seritDolu = o.trafik.some(t=>t!==tr &&
+              Math.abs(t.hedefX-yeni)<0.16 && Math.abs(t.z-tr.z)<48);
+            const oyuncuYakin = Math.abs(yeni - o.px) < 0.2 && dzm > -6 && dzm < 22;
+            if(!seritDolu && !oyuncuYakin) tr.hedefX = yeni;
           }
         }
       }
-      // hedef şeride yumuşak kayma
+      // hedef şeride yumuşak kayma (şerit değiştirme animasyonu)
       if(tr.hedefX !== undefined && Math.abs(tr.x - tr.hedefX) > 0.01){
-        tr.x += Math.sign(tr.hedefX - tr.x) * Math.min(Math.abs(tr.hedefX-tr.x), dt*0.5);
+        tr.x += Math.sign(tr.hedefX - tr.x) * Math.min(Math.abs(tr.hedefX-tr.x), dt*0.55);
       }
       // gerçek temas: araç neredeyse aynı noktada (dar bant) VE aynı şeritte
       if(dzm > -2.5 && dzm < 3.2 && Math.abs(tr.x - o.px) < 0.30){
-        o.hiz *= 0.34; o.carpTitre = 0.6;      // daha sert duruş + daha güçlü sarsıntı
-        o.hasar = Math.min(1, o.hasar + 0.05*H.hasarCarp);
+        // ÇARPMA ŞİDDETİ: hız farkına oranlı — yavaş araca hafifçe değmek ≠ tam çarpışma
+        const hizFark = Math.max(0, o.hiz - tr.hiz);        // yaklaşma hızı (m/s)
+        const siddet = Math.min(1, hizFark / (o.st.hiz/3.6*0.5));  // 0..1 normalize
+        // hafif dokunuşta az yavaşla (0.80), sert çarpışmada çok (0.36) — gerçekçi
+        const yavaslamaCarpani = 0.80 - 0.44*siddet;
+        o.hiz *= yavaslamaCarpani;
+        // öndeki aracı ileri it (arkadan çarpınca öne savrulur) + onu da yavaşlat
+        tr.z = o.mesafe + 4.5;
+        tr.hiz = Math.max(tr.hiz, o.hiz*0.9);
+        o.carpTitre = Math.max(o.carpTitre, 0.25 + 0.4*siddet);   // şiddete oranlı sarsıntı
+        o.hasar = Math.min(1, o.hasar + (0.02 + 0.05*siddet)*H.hasarCarp);
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
-        tr.z += 30; tr.gecti = true;
-        Ses.carp(1.35);
-        titret([60,40,90]);
+        tr.gecti = true;
+        Ses.carp(0.7 + 0.65*siddet);
+        titret([40 + 40*siddet, 40, 60 + 40*siddet]);
         dumanPatla(o);
         // çarpışma parçacıkları (cam/metal kıvılcımı)
         carpmaParcacik(o);
@@ -2703,7 +2757,7 @@ function ciz(){
     ctx.restore();
   }
   const araclar = [];
-  for(const tr of o.trafik) araclar.push({z:tr.z, x:tr.x, model:tr.model, renk:tr.renk});
+  for(const tr of o.trafik) araclar.push({z:tr.z, x:tr.x, model:tr.model, renk:tr.renk, fren:tr.fren>0.3});
   for(const h of o.hayaletler) araclar.push({z:h.mesafe, x:h.lat, model:h.model, renk:h.renk, hayalet:true, isim:h.isim});
   araclar.sort((a,b)=>b.z-a.z);
   for(const a of araclar){
@@ -2728,7 +2782,7 @@ function ciz(){
         ctx.fillText(a.isim, xc + w*a.x, y - wcar*0.75);
       }
     } else {
-      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model, gece:window._gece});
+      aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model, gece:window._gece, fren:a.fren});
     }
   }
 
