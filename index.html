@@ -2030,15 +2030,18 @@ function guncelle(dt){
       if(tr.hedefX !== undefined && Math.abs(tr.x - tr.hedefX) > 0.01){
         tr.x += Math.sign(tr.hedefX - tr.x) * Math.min(Math.abs(tr.hedefX-tr.x), dt*0.5);
       }
-      if(dzm > -4 && dzm < 9 && Math.abs(tr.x - o.px) < 0.34){
-        o.hiz *= 0.38; o.carpTitre = 0.45;
+      // gerçek temas: araç neredeyse aynı noktada (dar bant) VE aynı şeritte
+      if(dzm > -2.5 && dzm < 3.2 && Math.abs(tr.x - o.px) < 0.30){
+        o.hiz *= 0.34; o.carpTitre = 0.6;      // daha sert duruş + daha güçlü sarsıntı
         o.hasar = Math.min(1, o.hasar + 0.05*H.hasarCarp);
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
-        tr.z += 26; tr.gecti = true;
-        Ses.carp(1.25);
-        titret([50,40,80]);
+        tr.z += 30; tr.gecti = true;
+        Ses.carp(1.35);
+        titret([60,40,90]);
         dumanPatla(o);
-        if(navigator.vibrate) navigator.vibrate(80);
+        // çarpışma parçacıkları (cam/metal kıvılcımı)
+        carpmaParcacik(o);
+        if(navigator.vibrate) navigator.vibrate(90);
       }
       // sollama bonusu: TURBO + KOMBO
       if(!tr.gecti && dzm < -2){
@@ -2208,6 +2211,26 @@ function dumanPatla(o){
       tip:'kivilcim', taraf:0, x:(Math.random()-0.5)*30, y:-(Math.random()*20),
       vx:(Math.random()-0.5)*220, vy:-(80+Math.random()*180), g:520,
       omur:0.3+Math.random()*0.2, renk:Math.random()<0.5?'#ffd36b':'#ff5a3a', boy:1.5+Math.random()*2.5
+    });
+  }
+}
+
+function carpmaParcacik(o){
+  // çarpma anı: güçlü metal/cam saçılması (dumanPatla'dan daha yoğun ve geniş)
+  for(let i=0;i<16;i++){
+    o.parcaciklar.push({
+      tip:'kivilcim', taraf:0, x:(Math.random()-0.5)*50, y:-(Math.random()*40),
+      vx:(Math.random()-0.5)*340, vy:-(120+Math.random()*240), g:640,
+      omur:0.4+Math.random()*0.35,
+      renk:['#ffd36b','#ff5a3a','#fff2c4','#9fb4d8'][Math.floor(Math.random()*4)],
+      boy:1.5+Math.random()*3.5
+    });
+  }
+  for(let i=0;i<6;i++){
+    o.parcaciklar.push({
+      tip:'duman', x:(Math.random()-0.5)*60, y:-(Math.random()*30),
+      vx:(Math.random()-0.5)*120, vy:-(50+Math.random()*90), g:-15,
+      omur:0.6+Math.random()*0.5, boy:10+Math.random()*14
     });
   }
 }
