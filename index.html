@@ -1943,29 +1943,34 @@ function guncelle(dt){
     // NOS dışında nitro yavaşça dolar (temiz sürüş/sollama da ekler)
     if(!o.nosAktif) o.nitroDolu = Math.min(100, o.nitroDolu + dt*(6 + o.st.nitro*0.10));
 
-    // ---- KADEMELİ HIZLANMA — otomatik vites simülasyonu (Traffic Racer tarzı) ----
-    // Hız aralığı sanal viteslere bölünür. Her viste ivme başta güçlü, vites sonuna
-    // doğru zayıflar; vites geçişinde kısa bir "nefes" olur → sonra yeni vites çeker.
-    // Vites numarası GÖSTERİLMEZ, sadece hissedilir.
+    // ---- HIZLANMA — sürekli güç eğrisi + yumuşak vites dalgası (Traffic Racer tarzı) ----
+    // Fikir: ivme, hıza göre SÜREKLI bir eğriyle azalır (motor gücü / sürtünme gibi).
+    // Üstüne, vites sınırlarına senkron çok hafif bir dalga bindirilir → vites HİSSİ verir
+    // ama ivme hiçbir zaman durmaz. Kalkış güçlü, orta hız güçlü, üst hız yavaş ama SÜREKLİ.
     const maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
     const oran = Math.min(1, o.hiz / Math.max(1, maksMs));   // 0..1 mevcut/maks
-    // 6 sanal vites: düşük viteslerde hızlı tırmanış, yüksek viteslerde uzun çekiş
-    const VITES = 6;
-    const vitesF = oran * VITES;                    // 0..6 arası kesirli vites konumu
-    const vitesIc = vitesF - Math.floor(vitesF);    // vites içi ilerleme 0..1
-    // ivme çarpanı: vites başında güçlü (~1.0), vites sonuna doğru düşer (~0.45),
-    // tam geçiş noktasında kısa dip (shift torku kesilir)
-    const vitesEgri = 0.45 + 0.55 * (1 - vitesIc);           // vites içi tork eğrisi
-    const geciyor = vitesIc > 0.92 || vitesIc < 0.06;        // geçiş anı
-    const shiftDip = geciyor ? 0.35 : 1;                     // geçişte tork kesintisi
-    // yüksek viteslerde temel ivme azalır → yüksek hızlar belirgin şekilde daha uzun sürer
-    const vitesZorluk = 1 - Math.floor(vitesF) * 0.115;      // her üst viteste güç azalır
-    // yükseltme sistemi korunur ama kademeli hissedilir: ivme statının etkisi karekökle yumuşatılır
-    const ivmeStat = Math.sqrt(o.st.ivme / 38) * 38;         // ~38 taban; yükseltmeler yumuşak eğri
+
+    // 1) TEMEL GÜÇ EĞRİSİ — kalkışta çok güçlü, tepede azalan ama asla sıfırlanmayan.
+    //    (1-oran)^1.35 : düşük hızda ~1.0, orta hızda hâlâ güçlü, tepede küçük ama >0.
+    //    +0.14 taban: son vitese kadar araç HÂLÂ çektiğini hissettirir (asla durmaz).
+    const gucEgri = Math.pow(1 - oran, 1.35) * 0.86 + 0.14;
+
+    // 2) VİTES DALGASI — 6 sanal vites sınırında yumuşak sinüs (±%12).
+    //    Tork her viste hafif yükselir, geçişte hafif azalır → SÜREKLİ ama hissedilir.
+    //    Genlik düşük tutulur ki "vites geçti" hissi olsun ama "durdu" hissi ASLA olmasın.
+    const vitesF = oran * 6;                                 // 0..6 kesirli vites
+    const dalga = 1 + 0.12 * Math.cos(vitesF * Math.PI * 2); // 0.88..1.12 yumuşak salınım
+
+    // 3) YÜKSELTME — ivme statı karekök eğrisiyle girer (kademeli, anında büyük sıçrama yok)
+    const ivmeStat = Math.sqrt(o.st.ivme / 38) * 38;
     const ivmeTaban = ivmeStat/3.6 * hasarCarpan;
-    const ivmeAnlik = ivmeTaban * vitesEgri * vitesZorluk * shiftDip * (o.nosAktif?2.0:1);
+
+    // güçlü kalkış çarpanı: dururken tam güç (çabuk fırlar), hız arttıkça normale döner
+    const kalkis = 1 + 0.9 * Math.max(0, 1 - o.hiz/(maksMs*0.25));
+
+    const ivmeAnlik = ivmeTaban * gucEgri * dalga * kalkis * (o.nosAktif?2.2:1);
     if(o.hiz < maksMs){
-      o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*0.9);
+      o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*1.15);
     } else {
       o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);    // maks düşünce yumuşak in
     }
