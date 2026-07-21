@@ -1968,7 +1968,22 @@ function guncelle(dt){
     // Fikir: ivme, hıza göre SÜREKLI bir eğriyle azalır (motor gücü / sürtünme gibi).
     // Üstüne, vites sınırlarına senkron çok hafif bir dalga bindirilir → vites HİSSİ verir
     // ama ivme hiçbir zaman durmaz. Kalkış güçlü, orta hız güçlü, üst hız yavaş ama SÜREKLİ.
-    const maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
+    let maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
+    // RAKİP KATI: hemen öndeki rakip (aynı şerit) hız TAVANINI kendi hızına indirir →
+    // oyuncu içinden geçemez ama takip PÜRÜZSÜZ (hız zaten mevcut tavan mantığıyla
+    // sınırlandığı için kare-kare sıfırlama/sawtooth YOK). Rakip asla solmaz/silinmez.
+    let rakipOnde = null;
+    for(const h of o.hayaletler){
+      if(h.bitti) continue;
+      const dzR = h.mesafe - o.mesafe;
+      const ayniR = Math.abs(h.lat - o.px) < 0.30;
+      if(ayniR && dzR > 0 && dzR < 5){
+        if(h.hizV < maksMs) maksMs = h.hizV;
+        if(dzR < 2.6) rakipOnde = h;
+      } else if(dzR > 6 || !ayniR){
+        h.temas = false;
+      }
+    }
     const oran = Math.min(1, o.hiz / Math.max(1, maksMs));   // 0..1 mevcut/maks
 
     // 1) TEMEL GÜÇ EĞRİSİ — kalkışta çok güçlü, tepede azalan ama asla sıfırlanmayan.
@@ -1994,6 +2009,12 @@ function guncelle(dt){
       o.hiz = Math.min(maksMs, o.hiz + ivmeAnlik*dt*1.15);
     } else {
       o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);    // maks düşünce yumuşak in
+    }
+    // RAKİP TEMAS: gerçek dokunuşta hızı rakibe eşitle (tek sefer) + geri bildirim.
+    // Konum ışınlaması YOK; tavan zaten sınırlı olduğu için salınım oluşmaz.
+    if(rakipOnde){
+      if(o.hiz > rakipOnde.hizV) o.hiz = rakipOnde.hizV;
+      if(!rakipOnde.temas){ rakipOnde.temas = true; o.carpTitre = Math.max(o.carpTitre, 0.16); Ses.carp(0.55); }
     }
     o.mesafe += o.hiz*dt*1.7;
     // direksiyon
@@ -2234,19 +2255,6 @@ function guncelle(dt){
       h.hizV = Math.max(0, h.hizV);
       h.mesafe = Math.min(H.MESAFE, h.mesafe + h.hizV*dt*1.7);
       if(h.mesafe>=H.MESAFE){ h.mesafe=H.MESAFE; h.bitti=true; h.bitisSure=o.sure; }
-      // RAKİP KATI (trafik değil, kalıcı yarışçı): oyuncu aynı şeritte arkadan yetişirse
-      // rakibin İÇİNDEN geçemez. Konum ışınlaması YOK — yalnız oyuncu hızı rakibinkine
-      // sınırlanır (pürüzsüz engel; snap/salınım yok). Şerit değişince serbest kalır.
-      if(!h.bitti){
-        const dz = h.mesafe - o.mesafe;
-        const ayniSerit = Math.abs(h.lat - o.px) < 0.30;
-        if(dz > 0 && dz < 4.2 && ayniSerit && o.hiz > h.hizV){
-          o.hiz = h.hizV;                            // içinden geçme engeli
-          if(!h.temas){ h.temas = true; o.carpTitre = Math.max(o.carpTitre, 0.14); Ses.carp(0.5); }
-        } else if(dz > 6 || !ayniSerit){
-          h.temas = false;                           // ayrıldı → tekrar temas edebilir
-        }
-      }
     }
     // canlı sıralama
     const yarisci = [{isim:null, mesafe:o.mesafe}, ...o.hayaletler.map(h=>({isim:h.isim, renk:h.renk, mesafe:h.mesafe}))];
