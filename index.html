@@ -2788,13 +2788,29 @@ function ciz(){
                 s.x2+s.w2*(L-0.012), s.y2, s.x2+s.w2*(L+0.012));
       ctx.globalAlpha = 1;
     }
-    // başlangıç / bitiş damalı çizgi (tek net bant)
+    // başlangıç / bitiş damalı çizgi — ASFALTA ÇİZİLİ (yola ait geometri):
+    // Her dama hücresi, segmentin gerçek yakın (y1,x1,w1) ve uzak (y2,x2,w2) uç
+    // noktaları arasında perspektif yamuğu olarak çizilir (yolun kendisiyle aynı
+    // projeksiyon). Dünya-uzayında sabittir; oyuncu ilerledikçe aracın altından geçip
+    // perspektifle ekran altına kayar. Ekran-uzayı sabit bant DEĞİL.
     if(s.idx === 2 || s.idx === H.TOPLAM_SEG-2){
-      for(let q=0;q<14;q++){
-        ctx.fillStyle = (q%2) ? '#f4f4f4' : '#14161a';
-        ctx.globalAlpha = 1 - s.fog;
-        const xa = s.x1-s.w1 + (2*s.w1)*q/14;
-        ctx.fillRect(xa, s.y2, (2*s.w1)/14 + 0.5, Math.max(hB, (s.y1-s.y2)));
+      ctx.globalAlpha = 1 - s.fog;
+      const N = 12;
+      const xm = (s.x1+s.x2)/2, wm = (s.w1+s.w2)/2, ym = (s.y1+s.y2)/2;  // segment orta hattı
+      const satir = [
+        { y0:s.y1, x0:s.x1, w0:s.w1, y1:ym,   x1:xm,   w1:wm   },  // yakın sıra
+        { y0:ym,   x0:xm,   w0:wm,   y1:s.y2, x1:s.x2, w1:s.w2 }   // uzak sıra
+      ];
+      for(let r=0;r<2;r++){
+        const R = satir[r];
+        for(let q=0;q<N;q++){
+          ctx.fillStyle = ((q+r)%2) ? '#f4f4f4' : '#14161a';
+          const nl = R.x0-R.w0 + (2*R.w0)*q/N,     nr = R.x0-R.w0 + (2*R.w0)*(q+1)/N;
+          const fl = R.x1-R.w1 + (2*R.w1)*q/N,     fr = R.x1-R.w1 + (2*R.w1)*(q+1)/N;
+          ctx.beginPath();
+          ctx.moveTo(nl, R.y0); ctx.lineTo(nr, R.y0); ctx.lineTo(fr, R.y1); ctx.lineTo(fl, R.y1);
+          ctx.closePath(); ctx.fill();
+        }
       }
       ctx.globalAlpha = 1;
     }
