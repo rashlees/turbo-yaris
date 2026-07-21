@@ -2831,10 +2831,16 @@ function ciz(){
     const n = Math.floor(a.z/SEG) - bazIdx;
     if(n<0 || n>=GORUS) continue;
     const s = segArr[n]; if(!s) continue;
+    // DOĞRUDAN PERSPEKTİF PROJEKSİYONU (yalnız render düzeltmesi):
+    // Araç ekran konumu, segment uç-noktaları arasında DOĞRUSAL enterpolasyonla değil,
+    // gerçek göreli mesafeden yP/wP ile DOĞRUDAN hesaplanır. yP=1/z konveks olduğundan
+    // doğrusal enterpolasyon yakın araçlarda ekran-Y'sini büyük ölçüde şaşırtıp titretiyordu
+    // (mesafe arttıkça kaybolan stutter). Mantıksal yarış konumları DEĞİŞMEZ.
+    const Dz = Math.max(a.z - o.mesafe, zN*0.45);          // gerçek göreli mesafe (klipli)
     const t = Math.max(0, Math.min(1, (a.z - o.mesafe - s.z1)/(s.z2 - s.z1)));
-    const y = s.y1 + (s.y2-s.y1)*t;
-    const w = s.w1 + (s.w2-s.w1)*t;
-    const xc = s.x1 + (s.x2-s.x1)*t;
+    const y = yP(Dz);
+    const w = wP(Dz);
+    const xc = G/2 + w * (s.xo1 + (s.xo2 - s.xo1)*t);      // viraj yanal ofseti (5m'de pürüzsüz)
     const mg = (MODEL_GORUNUM[a.model]||MODEL_GORUNUM.generic).gen;
     // yol yarı-genişliği w → tam yol 2w → bir şerit = 2w/4 = w/2
     // araba bir şeritten biraz dar olsun: şerit*0.78
