@@ -1969,9 +1969,9 @@ function guncelle(dt){
     // Üstüne, vites sınırlarına senkron çok hafif bir dalga bindirilir → vites HİSSİ verir
     // ama ivme hiçbir zaman durmaz. Kalkış güçlü, orta hız güçlü, üst hız yavaş ama SÜREKLİ.
     let maksMs = o.st.hiz/3.6 * (o.nosAktif?1.30:1) * turboCarp * hasarCarpan;
-    // RAKİP KATI: hemen öndeki rakip (aynı şerit) hız TAVANINI kendi hızına indirir →
-    // oyuncu içinden geçemez ama takip PÜRÜZSÜZ (hız zaten mevcut tavan mantığıyla
-    // sınırlandığı için kare-kare sıfırlama/sawtooth YOK). Rakip asla solmaz/silinmez.
+    // YARIŞ RAKİBİ KATILIĞI (trafik NPC sisteminden AYRI): hemen öndeki rakip (aynı şerit)
+    // hız TAVANINI kendi hızına indirir → oyuncu içinden geçemez ama takip PÜRÜZSÜZ (hız
+    // mevcut tavan mantığıyla sınırlandığı için sawtooth YOK). Rakip asla solmaz/silinmez.
     let rakipOnde = null;
     for(const h of o.hayaletler){
       if(h.bitti) continue;
@@ -2010,11 +2010,12 @@ function guncelle(dt){
     } else {
       o.hiz = Math.max(maksMs, o.hiz - ivmeTaban*dt*0.6);    // maks düşünce yumuşak in
     }
-    // RAKİP TEMAS: gerçek dokunuşta hızı rakibe eşitle (tek sefer) + geri bildirim.
-    // Konum ışınlaması YOK; tavan zaten sınırlı olduğu için salınım oluşmaz.
+    // RAKİP ÇARPIŞMASI: trafikten TAMAMEN AYRI yol. Katı engel (içinden geçilmez) +
+    // gerçek temasta özel fiziksel çarpışma (itme + parçacık + ses + geri bildirim).
+    // Rakip ASLA solmaz/saydamlaşmaz/despawn olmaz/ilerlemesini kaybetmez.
     if(rakipOnde){
-      if(o.hiz > rakipOnde.hizV) o.hiz = rakipOnde.hizV;
-      if(!rakipOnde.temas){ rakipOnde.temas = true; o.carpTitre = Math.max(o.carpTitre, 0.16); Ses.carp(0.55); }
+      if(!rakipOnde.temas){ rakipOnde.temas = true; rakipCarpisma(rakipOnde); }
+      else if(o.hiz > rakipOnde.hizV){ o.hiz = rakipOnde.hizV; }   // katı engel (pürüzsüz, salınımsız)
     }
     o.mesafe += o.hiz*dt*1.7;
     // direksiyon
@@ -2337,6 +2338,26 @@ function carpmaParcacik(o){
       omur:0.6+Math.random()*0.5, boy:10+Math.random()*14
     });
   }
+}
+
+// ====== YARIŞ RAKİBİ ÇARPIŞMASI — Trafik NPC sisteminden TAMAMEN AYRI yol ======
+// Rakip kalıcı yarışçıdır: asla solmaz / saydamlaşmaz / despawn olmaz / ilerlemesini
+// kaybetmez / sıfırlanmaz. Bu fonksiyon YALNIZCA oyuncuya fiziksel çarpışma geri
+// tepkisi ve mevcut çarpışma efektlerini (parçacık/ses/sarsıntı/titreşim) uygular.
+// Rakibin hızı/mesafesi (yarış ilerlemesi) hiç değiştirilmez → normal yarışmaya devam.
+function rakipCarpisma(h){
+  const o = oyun;
+  const hizFark = Math.max(0, o.hiz - h.hizV);                 // yaklaşma hızı
+  const siddet = Math.min(1, hizFark / (o.st.hiz/3.6*0.5));    // 0..1 darbe şiddeti
+  // İTME REAKSİYONU: oyuncu darbeyle yavaşlar (konum ışınlaması YOK → hareket pürüzsüz).
+  o.hiz = Math.min(o.hiz * (0.80 - 0.44*siddet), h.hizV);
+  o.carpTitre = Math.max(o.carpTitre, 0.25 + 0.4*siddet);      // mevcut çarpışma geri bildirimi
+  // ÇARPIŞMA EFEKTLERİ (trafikle aynı görsel/işitsel geri bildirim; ama rakip KALICI):
+  Ses.carp(0.7 + 0.65*siddet);                                 // çarpışma sesi
+  titret([40 + 40*siddet, 40, 60 + 40*siddet]);                // titreşim
+  dumanPatla(o);                                               // duman + kıvılcım
+  carpmaParcacik(o);                                           // çarpışma parçacıkları
+  if(navigator.vibrate) navigator.vibrate(90);
 }
 
 function konfetiPatlat(){
