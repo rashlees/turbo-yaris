@@ -2120,8 +2120,6 @@ function guncelle(dt){
         // POLİSH: çarpılan araç sönümlenme (fade + hafif dönüş + hafif küçülme) başlat
         tr.carpFade = 0.45; tr.carpFadeMax = 0.45;
         tr.carpRot = (Math.random()<0.5?-1:1) * (10 + Math.random()*5) * Math.PI/180;
-        // POLİSH: oyuncu darbe parlaması + küçük kamera sarsıntısı (fizik dışı)
-        o.hitFlash = 0.15; o.hitShake = 0.08;
         Ses.carp(0.7 + 0.65*siddet);
         titret([40 + 40*siddet, 40, 60 + 40*siddet]);
         dumanPatla(o);
@@ -2154,8 +2152,6 @@ function guncelle(dt){
     }
     o.trafik = o.trafik.filter(tr => !tr.oldu && tr.z > o.mesafe - 30 && tr.z < o.mesafe + 900);
     o.carpTitre = Math.max(0, o.carpTitre - dt);
-    o.hitFlash = Math.max(0, (o.hitFlash||0) - dt);
-    o.hitShake = Math.max(0, (o.hitShake||0) - dt);
     o.sonGeecti = Math.max(0, o.sonGeecti - dt);
     o.turboToast = Math.max(0, (o.turboToast||0) - dt);
     o.mukToast = Math.max(0, (o.mukToast||0) - dt);
@@ -2238,6 +2234,19 @@ function guncelle(dt){
       h.hizV = Math.max(0, h.hizV);
       h.mesafe = Math.min(H.MESAFE, h.mesafe + h.hizV*dt*1.7);
       if(h.mesafe>=H.MESAFE){ h.mesafe=H.MESAFE; h.bitti=true; h.bitisSure=o.sure; }
+      // RAKİP KATI (trafik değil, kalıcı yarışçı): oyuncu aynı şeritte arkadan yetişirse
+      // rakibin İÇİNDEN geçemez. Konum ışınlaması YOK — yalnız oyuncu hızı rakibinkine
+      // sınırlanır (pürüzsüz engel; snap/salınım yok). Şerit değişince serbest kalır.
+      if(!h.bitti){
+        const dz = h.mesafe - o.mesafe;
+        const ayniSerit = Math.abs(h.lat - o.px) < 0.30;
+        if(dz > 0 && dz < 4.2 && ayniSerit && o.hiz > h.hizV){
+          o.hiz = h.hizV;                            // içinden geçme engeli
+          if(!h.temas){ h.temas = true; o.carpTitre = Math.max(o.carpTitre, 0.14); Ses.carp(0.5); }
+        } else if(dz > 6 || !ayniSerit){
+          h.temas = false;                           // ayrıldı → tekrar temas edebilir
+        }
+      }
     }
     // canlı sıralama
     const yarisci = [{isim:null, mesafe:o.mesafe}, ...o.hayaletler.map(h=>({isim:h.isim, renk:h.renk, mesafe:h.mesafe}))];
@@ -2603,12 +2612,7 @@ function ciz(){
   // kamera sarsıntısı: hız + hasar + nitro + çarpışma
   const carpSars = (o.carpTitre||0) * 26;
   const sarsGuc = _hzO*1.3 + (o.hasar)*2.0 + (_nit?2.2:0) + carpSars;
-  let _shX = (Math.random()-0.5)*sarsGuc, _shY = (Math.random()-0.5)*sarsGuc*0.7;
-  // POLİSH: kısa (~0.08sn) küçük (~3px) darbe sarsıntısı — yalnız kamera, fizik etkilenmez
-  if((o.hitShake||0) > 0){
-    const hs = 3 * (o.hitShake/0.08);
-    _shX += (Math.random()-0.5)*2*hs; _shY += (Math.random()-0.5)*2*hs;
-  }
+  const _shX = (Math.random()-0.5)*sarsGuc, _shY = (Math.random()-0.5)*sarsGuc*0.7;
   ctx.save();
   ctx.translate(_shX, _shY);
   const ufuk = Y*0.34, zN = 2.2;
@@ -2803,9 +2807,7 @@ function ciz(){
     const wcar = (w/2)*0.95*mg;
     if(wcar < 4) continue;
     if(a.hayalet){
-      ctx.globalAlpha = 0.55;
       aracArka(xc + w*a.x, y, wcar, {renk:a.renk, model:a.model, gece:window._gece});
-      ctx.globalAlpha = 1;
       if(wcar > 26){
         ctx.fillStyle = a.renk; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(a.isim, xc + w*a.x, y - wcar*0.75);
@@ -2856,8 +2858,6 @@ function ciz(){
       ctx.globalAlpha = 1;
     }
   }
-  // POLİSH: darbe parlaması — çarpınca alpha 0.75'e düşer, 0.15sn'de tam alfaya döner
-  if((o.hitFlash||0) > 0) ctx.globalAlpha = 1 - 0.25*(o.hitFlash/0.15);
   aracArka(0, 0, oyW, {
     renk: profil.arabalar[profil.secili].renk,
     model: profil.secili,
@@ -2868,7 +2868,6 @@ function ciz(){
     hasar: o.hasar,
     gece: window._gece
   });
-  ctx.globalAlpha = 1;
   ctx.restore();
   ctx.restore();
 
