@@ -2097,13 +2097,19 @@ function guncelle(dt){
       }
       // çarpışma bekleme süresini azalt (her araç kendi cooldown'ını taşır)
       if(tr.carpBekle > 0) tr.carpBekle -= dt;
+      const AYIRMA = 6.0;                                   // çarpma sonrası kalıcı boşluk (m)
+      const seritCakisma = Math.abs(tr.x - o.px) < 0.30;   // aynı şerit örtüşmesi
       // gerçek temas: araç neredeyse aynı noktada VE aynı şeritte VE cooldown bitti
-      if(dzm > -2.5 && dzm < 3.2 && Math.abs(tr.x - o.px) < 0.25 && !(tr.carpBekle > 0)){
+      if(dzm > -2.5 && dzm < 3.2 && seritCakisma && !(tr.carpBekle > 0)){
         // ÇARPMA ŞİDDETİ: hız farkına oranlı — yavaş araca hafifçe değmek ≠ tam çarpışma
         const hizFark = Math.max(0, o.hiz - tr.hiz);        // yaklaşma hızı (m/s)
         const siddet = Math.min(1, hizFark / (o.st.hiz/3.6*0.5));  // 0..1 normalize
-        o.hiz *= (0.80 - 0.44*siddet);
-        tr.carpBekle = 0.45;                                 // bu araçla 0.45sn tekrar çarpma yok
+        // hafif dokunuşta az yavaşla (0.80), sert çarpışmada çok (0.36) — gerçekçi
+        // öndekinden HIZLI kalma: yoksa boşluğu hemen kapatıp tekrar çarpar (itme döngüsü)
+        o.hiz = Math.min(o.hiz * (0.80 - 0.44*siddet), tr.hiz);
+        // AYIRMA: oyuncuyu aracın hemen ARKASINA yerleştir
+        o.mesafe = tr.z - AYIRMA;
+        tr.carpBekle = 0.6;                                  // bu araçla temas kilidi
         o.carpTitre = Math.max(o.carpTitre, 0.25 + 0.4*siddet);
         o.hasar = Math.min(1, o.hasar + (0.02 + 0.05*siddet)*H.hasarCarp);
         o.kombo = 0; o.komboSure = 0; o.temizSure = 0;   // KOMBO KIRILDI
@@ -2114,11 +2120,13 @@ function guncelle(dt){
         carpmaParcacik(o);
         if(navigator.vibrate) navigator.vibrate(90);
       }
-      // KATI ENGEL: çarpışmadan SONRA (cooldown'dayken) NPC'nin içine girmeyi engelle.
-      // Böylece önce çarpma tetiklenir (hasar+ses), sonra oyuncu arkasında sabitlenir → titreme yok.
-      if(tr.carpBekle > 0 && Math.abs(tr.x - o.px) < 0.25 && o.mesafe > tr.z - 3.2 && o.mesafe < tr.z + 1){
-        o.mesafe = tr.z - 3.2;                     // çarpışma sınırında tut
-        if(o.hiz > tr.hiz) o.hiz = tr.hiz;         // hızı öndekine kilitle (itiş yok)
+      // SÜREKLİ ENGEL (çarpma sonrası): hâlâ aynı şeritte ve hemen arkasındaysa
+      // araç bir duvar gibi davranır — itme/titreme YOK, öne geçemez, hız eşitlenir.
+      // Oyuncu şerit değiştirince kilit çözülür ve normal sollayabilir.
+      else if(tr.carpBekle > 0 && seritCakisma && dzm > 0 && dzm < AYIRMA + 2){
+        if(o.mesafe > tr.z - AYIRMA) o.mesafe = tr.z - AYIRMA;  // öne geçmeyi engelle
+        if(o.hiz > tr.hiz) o.hiz = tr.hiz;                      // hız eşitle → tekrar çarpma olmaz
+        tr.carpBekle = Math.max(tr.carpBekle, 0.2);            // şeritten çıkana dek kilidi taze tut
       }
       // sollama bonusu: TURBO + KOMBO
       if(!tr.gecti && dzm < -2){
@@ -2810,7 +2818,7 @@ function ciz(){
   const yolW = onSeg ? onSeg.w1 * 2 : G*0.66;   // ekrandaki tam yol genişliği (px)
   const seritW = yolW / 4;                       // bir şeridin px genişliği
   const oyMg = (MODEL_GORUNUM[profil.secili]||MODEL_GORUNUM.generic).gen;
-  const oyW = Math.max(54, Math.min(seritW * 0.66 * oyMg, G*0.27));
+  const oyW = Math.max(60, Math.min(seritW * 0.78 * oyMg, G*0.32));
   ctx.save();
   ctx.translate(G/2 + o.lean*9, Y*0.93);
   ctx.rotate(o.lean*0.045);
